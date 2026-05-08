@@ -1,0 +1,52 @@
+.denied-page {
+  display: flex;
+  align-items: center;
+}
+
+.denied-card {
+  width: 100%;
+  padding: 46rpx 34rpx;
+  text-align: center;
+}
+
+.denied-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96rpx;
+  height: 96rpx;
+  margin: 0 auto 26rpx;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #c45a4a;
+  font-size: 50rpx;
+  font-weight: 900;
+}
+
+.denied-title {
+  font-size: 38rpx;
+  font-weight: 900;
+}
+
+.denied-text {
+  margin-top: 18rpx;
+  color: #60706b;
+  font-size: 28rpx;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.info {
+  margin-top: 32rpx;
+  border-top: 1rpx solid #e2ebe8;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #e2ebe8;
+  color: #40504b;
+  font-size: 26rpx;
+}

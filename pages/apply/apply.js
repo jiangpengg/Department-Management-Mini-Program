@@ -1,4 +1,5 @@
 const { applicationTypes, roomSlots } = require("../../utils/mock");
+const { ensureAuthorized, hasCapability } = require("../../utils/auth");
 
 const defaultForm = {
   title: "",
@@ -22,6 +23,17 @@ Page({
   },
 
   onLoad(options) {
+    if (!ensureAuthorized()) return;
+    if (!hasCapability("apply")) {
+      wx.showToast({
+        title: "无申请权限",
+        icon: "none"
+      });
+      wx.switchTab({
+        url: "/pages/home/home"
+      });
+      return;
+    }
     if (options.type) {
       this.setActiveType(options.type);
     }

@@ -1,4 +1,5 @@
 const { applicationTypes, applications, projects, buildDashboard, getStatusMeta } = require("../../utils/mock");
+const { ensureAuthorized } = require("../../utils/auth");
 
 Page({
   data: {
@@ -10,6 +11,7 @@ Page({
   },
 
   onLoad() {
+    if (!ensureAuthorized()) return;
     const app = getApp();
     this.setData({
       user: app.globalData.user,

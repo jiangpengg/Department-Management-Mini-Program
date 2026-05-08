@@ -1,4 +1,5 @@
 const { tasks, getStatusMeta } = require("../../utils/mock");
+const { ensureAuthorized } = require("../../utils/auth");
 
 function decorate(list) {
   return list.map((item) => {
@@ -13,6 +14,7 @@ Page({
   },
 
   onLoad() {
+    if (!ensureAuthorized()) return;
     this.setData({
       tasks: decorate(tasks)
     });

@@ -1,0 +1,123 @@
+.admin-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 30rpx;
+}
+
+.admin-title {
+  font-size: 38rpx;
+  font-weight: 900;
+}
+
+.admin-subtitle {
+  margin-top: 10rpx;
+  color: #6b7773;
+  font-size: 26rpx;
+}
+
+.admin-badge {
+  min-width: 82rpx;
+  height: 46rpx;
+  border-radius: 999rpx;
+  color: #ffffff;
+  background: #1f5f54;
+  text-align: center;
+  line-height: 46rpx;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.access-card {
+  padding: 8rpx 28rpx;
+}
+
+.access-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid #edf2f0;
+  color: #40504b;
+  font-size: 26rpx;
+}
+
+.access-row:last-child {
+  border-bottom: 0;
+}
+
+.dept-card,
+.user-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 24rpx;
+}
+
+.dept-name,
+.user-name,
+.flow-title {
+  font-size: 30rpx;
+  font-weight: 900;
+}
+
+.dept-meta,
+.user-meta,
+.flow-meta,
+.reviewer-for {
+  margin-top: 8rpx;
+  color: #6b7773;
+  font-size: 24rpx;
+  line-height: 1.45;
+}
+
+.dept-count {
+  color: #1f5f54;
+  font-size: 30rpx;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.user-main {
+  min-width: 0;
+}
+
+.auth-tag {
+  min-width: 96rpx;
+  height: 42rpx;
+  border-radius: 999rpx;
+  text-align: center;
+  line-height: 42rpx;
+  font-size: 23rpx;
+  font-weight: 800;
+}
+
+.auth-tag.on {
+  color: #126a45;
+  background: #dff5e9;
+}
+
+.auth-tag.off {
+  color: #a02727;
+  background: #ffe2e0;
+}
+
+.flow-card {
+  padding: 24rpx;
+}
+
+.step-list {
+  display: grid;
+  gap: 10rpx;
+  margin-top: 18rpx;
+}
+
+.step {
+  padding: 16rpx 18rpx;
+  border-radius: 8rpx;
+  color: #40504b;
+  background: #f4f7f6;
+  font-size: 25rpx;
+}

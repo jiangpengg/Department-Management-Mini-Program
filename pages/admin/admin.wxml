@@ -1,0 +1,67 @@
+<view class="page">
+  <view class="admin-head card">
+    <view>
+      <view class="admin-title">所内管理配置</view>
+      <view class="admin-subtitle">部门、人员、审核人员、领导权限统一维护</view>
+    </view>
+    <view class="admin-badge">内控</view>
+  </view>
+
+  <view class="section-title">
+    <text>准入规则</text>
+  </view>
+  <view class="access-card card">
+    <view class="access-row">
+      <text>使用范围</text>
+      <text>仅限白名单人员</text>
+    </view>
+    <view class="access-row">
+      <text>身份识别</text>
+      <text>微信 openid + 人员表</text>
+    </view>
+    <view class="access-row">
+      <text>默认策略</text>
+      <text>未配置人员禁止进入</text>
+    </view>
+  </view>
+
+  <view class="section-title">
+    <text>部门设置</text>
+  </view>
+  <view class="list">
+    <view class="dept-card card" wx:for="{{departments}}" wx:key="id">
+      <view>
+        <view class="dept-name">{{item.name}}</view>
+        <view class="dept-meta">负责人：{{item.leader}} · 审核人员：{{item.reviewer}}</view>
+      </view>
+      <view class="dept-count">{{item.memberCount}}人</view>
+    </view>
+  </view>
+
+  <view class="section-title">
+    <text>人员与角色</text>
+  </view>
+  <view class="list">
+    <view class="user-card card" wx:for="{{users}}" wx:key="id">
+      <view class="user-main">
+        <view class="user-name">{{item.name}}</view>
+        <view class="user-meta">{{item.department}} · {{item.role}}</view>
+        <view class="reviewer-for" wx:if="{{item.reviewerFor.length}}">负责审核：{{item.reviewerForText}}</view>
+      </view>
+      <view class="auth-tag {{item.authorized ? 'on' : 'off'}}">{{item.authorized ? '已授权' : '禁用'}}</view>
+    </view>
+  </view>
+
+  <view class="section-title">
+    <text>审核流程</text>
+  </view>
+  <view class="list">
+    <view class="flow-card card" wx:for="{{approvalFlows}}" wx:key="type">
+      <view class="flow-title">{{item.type}}</view>
+      <view class="flow-meta">审核人：{{item.reviewer}} · 领导：{{item.leader}}</view>
+      <view class="step-list">
+        <view class="step" wx:for="{{item.steps}}" wx:for-item="step" wx:key="*this">{{index + 1}}. {{step}}</view>
+      </view>
+    </view>
+  </view>
+</view>

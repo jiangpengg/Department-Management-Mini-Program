@@ -4,6 +4,7 @@
     <view>
       <view class="name">{{user.name}}</view>
       <view class="dept">{{user.department}} · {{user.role}}</view>
+      <view class="auth-line">已授权 · {{user.openid}}</view>
     </view>
   </view>
 
@@ -11,21 +12,18 @@
     <text>管理配置</text>
   </view>
   <view class="menu card">
-    <view class="menu-item">
-      <text>人员与权限</text>
+    <view class="menu-item" bindtap="goAdmin">
+      <view>
+        <text>部门、人员与审核配置</text>
+        <text class="menu-desc">{{canConfig ? '可配置部门、人员白名单、审核人员和领导' : '仅管理员和部门负责人可配置'}}</text>
+      </view>
       <text class="arrow">›</text>
     </view>
-    <view class="menu-item">
-      <text>审批流程配置</text>
-      <text class="arrow">›</text>
-    </view>
-    <view class="menu-item">
-      <text>会议室与印章台账</text>
-      <text class="arrow">›</text>
-    </view>
-    <view class="menu-item">
-      <text>订阅消息模板</text>
-      <text class="arrow">›</text>
+    <view class="menu-item muted-item">
+      <view>
+        <text>当前权限</text>
+        <text class="menu-desc">{{capabilityText}}</text>
+      </view>
     </view>
   </view>
 
@@ -33,8 +31,8 @@
     <text>建设路线</text>
   </view>
   <view class="roadmap card">
-    <view class="roadmap-item">第一阶段：申请、审批、任务、项目台账</view>
-    <view class="roadmap-item">第二阶段：云数据库、云函数、附件上传</view>
-    <view class="roadmap-item">第三阶段：订阅消息、腾讯会议接口、统计报表</view>
+    <view class="roadmap-item">第一阶段：人员白名单、部门角色、审核人和领导配置</view>
+    <view class="roadmap-item">第二阶段：申请、审批、任务、项目台账接入云数据库</view>
+    <view class="roadmap-item">第三阶段：订阅消息、腾讯会议接口、统计报表和操作审计</view>
   </view>
 </view>

@@ -1,4 +1,5 @@
 const { applications, getStatusMeta } = require("../../utils/mock");
+const { ensureAuthorized, hasCapability } = require("../../utils/auth");
 
 Page({
   data: {
@@ -14,6 +15,17 @@ Page({
   },
 
   onLoad() {
+    if (!ensureAuthorized()) return;
+    if (!hasCapability("approve")) {
+      wx.showToast({
+        title: "无审批权限",
+        icon: "none"
+      });
+      wx.switchTab({
+        url: "/pages/home/home"
+      });
+      return;
+    }
     const list = applications.map((item) => {
       const meta = getStatusMeta(item.status);
       return { ...item, statusText: meta.text, statusTone: meta.tone };

@@ -1,0 +1,21 @@
+<view class="page denied-page">
+  <view class="denied-card card">
+    <view class="denied-icon">!</view>
+    <view class="denied-title">暂未开通访问权限</view>
+    <view class="denied-text">本小程序仅限所内已配置人员使用。请联系部门管理员将你的微信身份加入人员白名单，并分配部门、角色和审批权限。</view>
+    <view class="info">
+      <view class="info-row">
+        <text>准入方式</text>
+        <text>openid 白名单</text>
+      </view>
+      <view class="info-row">
+        <text>权限来源</text>
+        <text>部门与角色配置</text>
+      </view>
+      <view class="info-row">
+        <text>处理人</text>
+        <text>部门负责人 / 系统管理员</text>
+      </view>
+    </view>
+  </view>
+</view>

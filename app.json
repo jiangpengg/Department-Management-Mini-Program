@@ -5,7 +5,9 @@
     "pages/approval/approval",
     "pages/tasks/tasks",
     "pages/projects/projects",
-    "pages/profile/profile"
+    "pages/profile/profile",
+    "pages/admin/admin",
+    "pages/access-denied/access-denied"
   ],
   "window": {
     "navigationBarTitleText": "部门事务管理",

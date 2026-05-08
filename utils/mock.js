@@ -30,6 +30,132 @@ const applicationTypes = [
   }
 ];
 
+const roles = [
+  {
+    key: "staff",
+    name: "普通员工",
+    desc: "提交申请、查看自己的任务和项目事项",
+    capabilities: ["apply"]
+  },
+  {
+    key: "reviewer",
+    name: "审核人员",
+    desc: "审核会议、会议室、印章等申请",
+    capabilities: ["apply", "approve"]
+  },
+  {
+    key: "department_manager",
+    name: "部门负责人",
+    desc: "审批、任务分派、项目进度管控和部门数据查看",
+    capabilities: ["apply", "approve", "task_manage", "project_manage", "system_config"]
+  },
+  {
+    key: "institute_leader",
+    name: "所领导",
+    desc: "查看全所事项、终审重点流程和项目风险",
+    capabilities: ["approve", "project_manage", "system_config", "global_view"]
+  }
+];
+
+const departments = [
+  {
+    id: "d001",
+    name: "科技管理部",
+    leader: "张明",
+    reviewer: "王珂",
+    memberCount: 12
+  },
+  {
+    id: "d002",
+    name: "综合办公室",
+    leader: "沈越",
+    reviewer: "赵敏",
+    memberCount: 8
+  },
+  {
+    id: "d003",
+    name: "工程技术中心",
+    leader: "秦佳",
+    reviewer: "陈宁",
+    memberCount: 21
+  }
+];
+
+const users = [
+  {
+    id: "u001",
+    name: "张明",
+    department: "科技管理部",
+    role: "部门负责人",
+    roleKey: "department_manager",
+    authorized: true,
+    reviewerFor: ["科技项目", "任务推送"]
+  },
+  {
+    id: "u002",
+    name: "王珂",
+    department: "科技管理部",
+    role: "审核人员",
+    roleKey: "reviewer",
+    authorized: true,
+    reviewerFor: ["腾讯会议", "会议室"]
+  },
+  {
+    id: "u003",
+    name: "赵敏",
+    department: "综合办公室",
+    role: "审核人员",
+    roleKey: "reviewer",
+    authorized: true,
+    reviewerFor: ["印章"]
+  },
+  {
+    id: "u004",
+    name: "刘洋",
+    department: "科技管理部",
+    role: "普通员工",
+    roleKey: "staff",
+    authorized: true,
+    reviewerFor: []
+  },
+  {
+    id: "u005",
+    name: "外部访客",
+    department: "未授权",
+    role: "访客",
+    roleKey: "guest",
+    authorized: false,
+    reviewerFor: []
+  }
+];
+
+const approvalFlows = [
+  {
+    type: "腾讯会议",
+    steps: ["申请人提交", "部门审核人员审核", "部门负责人确认"],
+    reviewer: "王珂",
+    leader: "张明"
+  },
+  {
+    type: "会议室",
+    steps: ["申请人提交", "综合办公室审核", "自动写入会议室台账"],
+    reviewer: "王珂",
+    leader: "沈越"
+  },
+  {
+    type: "印章",
+    steps: ["申请人提交", "综合办公室初审", "所领导终审", "用章登记"],
+    reviewer: "赵敏",
+    leader: "沈越"
+  },
+  {
+    type: "科技项目",
+    steps: ["项目负责人更新", "部门负责人审核", "所领导查看风险"],
+    reviewer: "张明",
+    leader: "所领导"
+  }
+];
+
 const applications = [
   {
     id: "A20260501001",
@@ -153,6 +279,10 @@ function buildDashboard() {
 module.exports = {
   applicationTypes,
   applications,
+  roles,
+  departments,
+  users,
+  approvalFlows,
   tasks,
   projects,
   roomSlots,
