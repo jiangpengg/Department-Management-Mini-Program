@@ -8,31 +8,54 @@
     </view>
   </view>
 
-  <view class="section-title">
+  <view class="section-title" wx:if="{{canConfig}}">
     <text>管理配置</text>
   </view>
-  <view class="menu card">
+  <view class="menu card" wx:if="{{canConfig}}">
     <view class="menu-item" bindtap="goAdmin">
       <view>
         <text>部门、人员与审核配置</text>
-        <text class="menu-desc">{{canConfig ? '可配置部门、人员白名单、审核人员和领导' : '仅管理员和部门负责人可配置'}}</text>
+        <text class="menu-desc">可配置部门、人员白名单、审核人员和领导</text>
       </view>
       <text class="arrow">›</text>
-    </view>
-    <view class="menu-item muted-item">
-      <view>
-        <text>当前权限</text>
-        <text class="menu-desc">{{capabilityText}}</text>
-      </view>
     </view>
   </view>
 
   <view class="section-title">
-    <text>建设路线</text>
+    <text>组织信息</text>
+  </view>
+  <view class="menu card">
+    <view class="menu-item" bindtap="goOrgView">
+      <view class="menu-main">
+        <text>部门人员架构</text>
+        <text class="menu-desc">查看领导、科室、各科室人员和角色</text>
+      </view>
+      <text class="arrow">›</text>
+    </view>
+  </view>
+
+  <view class="section-title">
+    <text>我的信息</text>
   </view>
   <view class="roadmap card">
-    <view class="roadmap-item">第一阶段：人员白名单、部门角色、审核人和领导配置</view>
-    <view class="roadmap-item">第二阶段：申请、审批、任务、项目台账接入云数据库</view>
-    <view class="roadmap-item">第三阶段：订阅消息、腾讯会议接口、统计报表和操作审计</view>
+    <view class="roadmap-item">姓名：{{user.name}}</view>
+    <view class="roadmap-item">所属部门：{{user.department}}</view>
+    <view class="roadmap-item">当前角色：{{user.role}}</view>
+    <view class="roadmap-item">授权状态：{{user.authorized ? '已授权' : '未授权'}}</view>
+    <view class="roadmap-item" wx:if="{{canConfig}}">权限能力：{{capabilityText}}</view>
+  </view>
+
+  <view class="section-title">
+    <text>云开发测试</text>
+  </view>
+  <view class="menu card">
+    <button class="menu-item menu-button" bindtap="testCloudLogin">
+      <view class="menu-main">
+        <text>测试 login 云函数</text>
+        <text class="menu-desc">{{cloudTestStatus}}</text>
+        <text class="menu-desc" wx:if="{{cloudOpenid}}">{{cloudOpenid}}</text>
+      </view>
+      <text class="arrow">›</text>
+    </button>
   </view>
 </view>

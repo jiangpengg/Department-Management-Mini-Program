@@ -36,6 +36,27 @@
   font-size: 26rpx;
 }
 
+.flow-note {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48rpx;
+  margin-top: 18rpx;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.flow-note.no-approval {
+  color: #126a45;
+  background: #dff5e9;
+}
+
+.flow-note.needs-approval {
+  color: #8a5400;
+  background: #fff1cc;
+}
+
 .field {
   margin-top: 28rpx;
 }
@@ -45,6 +66,11 @@
   color: #33423e;
   font-size: 26rpx;
   font-weight: 700;
+}
+
+.picker-control {
+  display: block;
+  width: 100%;
 }
 
 input,
@@ -62,6 +88,233 @@ input,
   height: 82rpx;
   padding: 0 22rpx;
   line-height: 82rpx;
+}
+
+.picker-action {
+  color: #1f5f54;
+  font-weight: 700;
+}
+
+.picker-mask {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  top: 0;
+  z-index: 99;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.picker-panel {
+  width: 100%;
+  max-height: 88vh;
+  border-radius: 18rpx 18rpx 0 0;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.picker-panel.time-panel {
+  background: #15191d;
+}
+
+.picker-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 92rpx;
+  padding: 0 24rpx;
+  border-bottom: 1rpx solid #edf2f0;
+}
+
+.time-panel .picker-panel-head {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.picker-panel-title {
+  color: #17211e;
+  font-size: 30rpx;
+  font-weight: 800;
+}
+
+.time-panel .picker-panel-title {
+  color: #ffffff;
+}
+
+.picker-panel-action {
+  min-width: 92rpx;
+  height: 64rpx;
+  color: #65736f;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.picker-panel-action.primary {
+  color: #1f5f54;
+}
+
+.time-panel .picker-panel-action {
+  color: #aeb5b9;
+}
+
+.time-panel .picker-panel-action.primary {
+  color: #4b99ff;
+}
+
+.inline-picker {
+  width: 100%;
+  height: 460rpx;
+}
+
+.picker-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  color: #24332f;
+  font-size: 30rpx;
+}
+
+.calendar-panel {
+  padding: 20rpx 24rpx 34rpx;
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 72rpx;
+}
+
+.calendar-nav-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72rpx;
+  height: 64rpx;
+  border-radius: 8rpx;
+  color: #1f5f54;
+  background: #eef6f3;
+  font-size: 42rpx;
+  font-weight: 800;
+}
+
+.calendar-month {
+  color: #17211e;
+  font-size: 30rpx;
+  font-weight: 900;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.calendar-weekdays {
+  margin-top: 10rpx;
+  color: #77837f;
+  text-align: center;
+  font-size: 23rpx;
+  font-weight: 800;
+}
+
+.calendar-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 76rpx;
+  margin-top: 8rpx;
+  border-radius: 8rpx;
+  color: #24332f;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.calendar-day.muted-day {
+  color: #bbc5c1;
+}
+
+.calendar-day.disabled {
+  color: #d2d9d6;
+}
+
+.calendar-day.selected {
+  color: #ffffff;
+  background: #1f5f54;
+}
+
+.timeline-panel {
+  padding: 18rpx 0 0;
+  color: #ffffff;
+}
+
+.timeline-hint {
+  padding: 0 28rpx;
+  color: #9aa3a8;
+  font-size: 24rpx;
+}
+
+.timeline-summary {
+  margin-top: 12rpx;
+  padding: 0 28rpx 20rpx;
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 900;
+}
+
+.timeline-list {
+  max-height: 700rpx;
+  overflow-y: auto;
+  padding-bottom: 28rpx;
+}
+
+.timeline-row {
+  display: grid;
+  grid-template-columns: 92rpx 1fr;
+  min-height: 92rpx;
+}
+
+.timeline-hour {
+  padding-top: 2rpx;
+  color: #697179;
+  text-align: center;
+  font-size: 26rpx;
+  font-weight: 800;
+}
+
+.timeline-row.selected .timeline-hour,
+.timeline-row.start .timeline-hour,
+.timeline-row.end .timeline-hour {
+  color: #4b99ff;
+}
+
+.timeline-cell {
+  position: relative;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1rpx dashed rgba(255, 255, 255, 0.04);
+}
+
+.timeline-fill {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  top: 0;
+  border-left: 4rpx solid #3689ff;
+  border-right: 4rpx solid #3689ff;
+  background: rgba(54, 137, 255, 0.12);
+}
+
+.timeline-row.start .timeline-fill {
+  border-top: 4rpx solid #3689ff;
+  border-radius: 10rpx 10rpx 0 0;
+}
+
+.timeline-row.end .timeline-fill {
+  border-bottom: 4rpx solid #3689ff;
+  border-radius: 0 0 10rpx 10rpx;
 }
 
 textarea {
@@ -93,6 +346,114 @@ textarea {
 
 .primary-button {
   margin-top: 34rpx;
+}
+
+.meeting-result {
+  margin-top: 24rpx;
+  padding: 22rpx;
+  box-shadow: none;
+}
+
+.result-title {
+  color: #17211e;
+  font-size: 28rpx;
+  font-weight: 900;
+}
+
+.result-line,
+.result-link,
+.result-raw {
+  margin-top: 10rpx;
+  color: #60706b;
+  font-size: 24rpx;
+  line-height: 1.45;
+  word-break: break-all;
+}
+
+.result-link {
+  color: #1f5f54;
+  font-weight: 700;
+}
+
+.result-copy-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64rpx;
+  margin-top: 18rpx;
+  border-radius: 8rpx;
+  color: #ffffff;
+  background: #1f5f54;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.result-raw {
+  padding: 14rpx;
+  border-radius: 8rpx;
+  color: #7b3b24;
+  background: #fff2ea;
+}
+
+.meeting-record {
+  padding: 22rpx;
+  overflow: hidden;
+}
+
+.meeting-record-title {
+  color: #17211e;
+  font-size: 28rpx;
+  font-weight: 900;
+}
+
+.meeting-record-meta {
+  margin-top: 8rpx;
+  color: #66726e;
+  font-size: 23rpx;
+  line-height: 1.4;
+}
+
+.meeting-record-link {
+  margin-top: 8rpx;
+  color: #1f5f54;
+  font-size: 23rpx;
+  font-weight: 700;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.record-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12rpx;
+  width: 100%;
+  margin-top: 18rpx;
+  overflow: hidden;
+}
+
+.record-copy-button,
+.record-delete-button {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  align-items: center;
+  justify-content: center;
+  height: 64rpx;
+  padding: 0;
+  border-radius: 8rpx;
+  color: #ffffff;
+  background: #1f5f54;
+  font-size: 24rpx;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.record-delete-button {
+  border: 1rpx solid #e1b7b7;
+  color: #a83232;
+  background: #fff7f7;
 }
 
 .slot {

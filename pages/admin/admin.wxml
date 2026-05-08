@@ -2,7 +2,7 @@
   <view class="admin-head card">
     <view>
       <view class="admin-title">所内管理配置</view>
-      <view class="admin-subtitle">科室、人员、审核人员、安全员、党建员和角色统一维护</view>
+      <view class="admin-subtitle">{{scope === 'global' ? '全所人员、部门与权限统一维护' : '本科室人员权限维护'}}</view>
     </view>
     <view class="admin-badge">内控</view>
   </view>
@@ -23,11 +23,15 @@
       <text>默认策略</text>
       <text>未配置人员禁止进入</text>
     </view>
+    <view class="access-row">
+      <text>管理范围</text>
+      <text>{{scope === 'global' ? '全所' : '本科室'}}</text>
+    </view>
   </view>
 
   <view class="section-title">
     <text>科室设置</text>
-    <button class="text-button" bindtap="goDepartmentManage">管理</button>
+    <button class="text-button" wx:if="{{canGlobalManage}}" bindtap="goDepartmentManage">管理</button>
   </view>
   <view class="list">
     <view class="dept-card card" wx:for="{{departments}}" wx:key="id" data-id="{{item.id}}" bindtap="goDepartmentDetail">
@@ -44,7 +48,8 @@
   </view>
 
   <view class="section-title">
-    <text>人员与角色</text>
+    <text>人员管理</text>
+    <button class="text-button" bindtap="goPeopleManage">管理</button>
   </view>
   <view class="list">
     <view class="user-card card" wx:for="{{users}}" wx:key="id">

@@ -1,29 +1,41 @@
 const { departments, users, approvalFlows } = require("../../utils/mock");
-const { ensureAuthorized, hasCapability } = require("../../utils/auth");
+const { ensureAuthorized, getCurrentUser, canManageSystem, canManageDepartment, getManageScope } = require("../../utils/auth");
 
 Page({
   data: {
     departments: [],
     users: [],
-    approvalFlows
+    approvalFlows,
+    scope: "self",
+    canGlobalManage: false
   },
 
   onLoad() {
     if (!ensureAuthorized()) return;
-    if (!hasCapability("system_config")) {
+    if (!canManageDepartment()) {
       wx.showToast({
         title: "无管理配置权限",
         icon: "none"
       });
-      wx.switchTab({
-        url: "/pages/profile/profile"
-      });
+      wx.switchTab({ url: "/pages/profile/profile" });
       return;
     }
 
+    const scope = getManageScope();
+    const currentUser = getCurrentUser();
+    const visibleUsers = scope === "global"
+      ? users
+      : users.filter((item) => item.department === currentUser.department);
+    const visibleDepartments = scope === "global"
+      ? departments
+      : departments.filter((item) => item.name === currentUser.department);
+
     this.setData({
-      departments: this.decorateDepartments(departments, users),
-      users: this.decorateUsers(users)
+      scope,
+      canGlobalManage: canManageSystem(),
+      departments: this.decorateDepartments(visibleDepartments, users),
+      users: this.decorateUsers(visibleUsers),
+      approvalFlows: approvalFlows.filter((item) => item.approvalRequired)
     });
   },
 
@@ -42,8 +54,19 @@ Page({
   },
 
   goDepartmentManage() {
+    if (!this.data.canGlobalManage) {
+      wx.showToast({ title: "仅全局管理员可管理科室", icon: "none" });
+      return;
+    }
+
     wx.navigateTo({
       url: "/pages/department-manage/department-manage"
+    });
+  },
+
+  goPeopleManage() {
+    wx.navigateTo({
+      url: "/pages/people-manage/people-manage"
     });
   },
 

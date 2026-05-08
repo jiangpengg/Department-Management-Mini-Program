@@ -26,7 +26,7 @@ Page({
       });
       return;
     }
-    const list = applications.map((item) => {
+    const list = applications.filter((item) => item.approvalRequired).map((item) => {
       const meta = getStatusMeta(item.status);
       return { ...item, statusText: meta.text, statusTone: meta.tone };
     });

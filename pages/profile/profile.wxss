@@ -51,6 +51,20 @@
   font-weight: 700;
 }
 
+.menu-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-button {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  line-height: 1.2;
+}
+
 .menu-desc {
   display: block;
   margin-top: 8rpx;

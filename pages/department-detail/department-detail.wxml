@@ -2,38 +2,21 @@
   <view class="admin-head card">
     <view>
       <view class="admin-title">{{department.name}}</view>
-      <view class="admin-subtitle">科室人员、角色、安全员、党建员配置</view>
+      <view class="admin-subtitle">查看科室人员，从组织内搜索添加人员</view>
     </view>
-    <button class="text-button" bindtap="addMember">加人</button>
   </view>
 
   <view class="section-title">
-    <text>科室岗位</text>
+    <text>添加人员</text>
   </view>
-  <view class="access-card card">
-    <view class="access-row">
-      <text>负责人</text>
-      <picker range="{{authorizedUserNames}}" data-field="leader" bindchange="setDeptPerson">
-        <view>{{department.leader}}</view>
-      </picker>
-    </view>
-    <view class="access-row">
-      <text>审核人员</text>
-      <picker range="{{authorizedUserNames}}" data-field="reviewer" bindchange="setDeptPerson">
-        <view>{{department.reviewer}}</view>
-      </picker>
-    </view>
-    <view class="access-row">
-      <text>安全员</text>
-      <picker range="{{authorizedUserNames}}" data-field="safetyOfficer" bindchange="setDeptPerson">
-        <view>{{department.safetyOfficer}}</view>
-      </picker>
-    </view>
-    <view class="access-row">
-      <text>党建员</text>
-      <picker range="{{authorizedUserNames}}" data-field="partyOfficer" bindchange="setDeptPerson">
-        <view>{{department.partyOfficer}}</view>
-      </picker>
+  <view class="search-card card">
+    <input value="{{searchKeyword}}" bindinput="onSearch" placeholder="搜索组织内人员姓名" />
+    <view class="search-result" wx:for="{{searchResults}}" wx:key="id">
+      <view>
+        <view class="user-name">{{item.name}}</view>
+        <view class="user-meta">{{item.department}} · {{item.role}}</view>
+      </view>
+      <button class="text-button" data-id="{{item.id}}" bindtap="addExistingMember">加入</button>
     </view>
   </view>
 
@@ -45,14 +28,6 @@
       <view class="user-main">
         <view class="user-name">{{item.name}}</view>
         <view class="user-meta">{{item.role}} · {{item.authorized ? '已授权' : '禁用'}}</view>
-        <view class="mini-actions">
-          <picker range="{{roleNames}}" data-id="{{item.id}}" bindchange="changeUserRole">
-            <view class="mini-chip">调整角色</view>
-          </picker>
-          <picker range="{{departmentNames}}" data-id="{{item.id}}" bindchange="moveUserDepartment">
-            <view class="mini-chip">转到其他科室</view>
-          </picker>
-        </view>
       </view>
       <button class="danger-link" data-id="{{item.id}}" bindtap="removeMember">移出</button>
     </view>

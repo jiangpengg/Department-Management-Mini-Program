@@ -17,8 +17,35 @@ function hasCapability(capability) {
   return Boolean(user.authorized && user.capabilities && user.capabilities.includes(capability));
 }
 
+function canManageSystem() {
+  const user = getCurrentUser();
+  return Boolean(
+    user.authorized &&
+    user.capabilities &&
+    user.capabilities.includes("global_admin")
+  );
+}
+
+function canManageDepartment() {
+  const user = getCurrentUser();
+  return Boolean(
+    user.authorized &&
+    user.capabilities &&
+    (user.capabilities.includes("global_admin") || user.capabilities.includes("department_admin"))
+  );
+}
+
+function getManageScope() {
+  if (canManageSystem()) return "global";
+  if (canManageDepartment()) return "department";
+  return "self";
+}
+
 module.exports = {
   getCurrentUser,
   ensureAuthorized,
-  hasCapability
+  hasCapability,
+  canManageSystem,
+  canManageDepartment,
+  getManageScope
 };

@@ -7,51 +7,148 @@
 
   <view class="form card">
     <view class="form-title">{{currentType.name}}</view>
-    <view class="form-subtitle">{{currentType.desc}}</view>
+    <view class="form-subtitle" wx:if="{{activeType !== 'meeting'}}">{{currentType.desc}}</view>
+    <view class="flow-note {{currentType.approvalRequired ? 'needs-approval' : 'no-approval'}}" wx:if="{{activeType !== 'meeting'}}">
+      {{currentType.approvalRequired ? '提交后进入审批流程' : '无需审批，提交后直接登记'}}
+    </view>
 
     <view class="field">
       <view class="label">申请主题</view>
       <input value="{{form.title}}" data-field="title" bindinput="onInput" placeholder="请输入申请主题" />
     </view>
 
-    <view class="field">
+    <view class="field" wx:if="{{activeType !== 'meeting'}}">
       <view class="label">使用时间</view>
       <input value="{{form.time}}" data-field="time" bindinput="onInput" placeholder="例如 2026-05-06 09:30" />
     </view>
 
     <view class="field" wx:if="{{activeType === 'meeting'}}">
-      <view class="label">参会人员</view>
-      <input value="{{form.attendees}}" data-field="attendees" bindinput="onInput" placeholder="填写姓名，多个用逗号隔开" />
+      <view class="label">会议日期</view>
+      <view class="picker-value picker-action" bindtap="openDatePanel">{{form.meetingDate || '点击选择日期'}}</view>
     </view>
 
     <view class="field" wx:if="{{activeType === 'meeting'}}">
-      <view class="label">会议需求</view>
-      <view class="check-row" bindtap="toggleTencent">
-        <view class="checkbox {{form.needTencent ? 'checked' : ''}}"></view>
-        <text>需要创建腾讯会议链接</text>
-      </view>
+      <view class="label">会议时间</view>
+      <view class="picker-value picker-action" bindtap="openTimePanel">{{meetingTimeText}}</view>
     </view>
 
     <view class="field" wx:if="{{activeType === 'room'}}">
       <view class="label">会议室</view>
-      <picker range="{{roomNames}}" value="{{roomIndex}}" bindchange="onRoomChange">
+      <picker class="picker-control" mode="selector" range="{{roomNames}}" value="{{roomIndex}}" bindchange="onRoomChange">
         <view class="picker-value">{{roomNames[roomIndex]}}</view>
       </picker>
     </view>
 
     <view class="field" wx:if="{{activeType === 'seal'}}">
       <view class="label">印章类型</view>
-      <picker range="{{sealTypes}}" value="{{sealIndex}}" bindchange="onSealChange">
+      <picker class="picker-control" mode="selector" range="{{sealTypes}}" value="{{sealIndex}}" bindchange="onSealChange">
         <view class="picker-value">{{sealTypes[sealIndex]}}</view>
       </picker>
     </view>
 
-    <view class="field">
+    <view class="field" wx:if="{{activeType !== 'meeting'}}">
       <view class="label">申请说明</view>
       <textarea value="{{form.remark}}" data-field="remark" bindinput="onInput" placeholder="补充用途、背景、材料清单或审批说明" />
     </view>
 
-    <button class="primary-button" bindtap="submitApply">提交申请</button>
+    <view class="picker-mask" wx:if="{{pickerPanelVisible}}" catchtap="closePickerPanel">
+      <view class="picker-panel {{pickerPanelType === 'time' ? 'time-panel' : ''}}" catchtap="noop">
+        <view class="picker-panel-head">
+          <button class="picker-panel-action" bindtap="closePickerPanel">取消</button>
+          <view class="picker-panel-title">{{pickerPanelTitle}}</view>
+          <button class="picker-panel-action primary" bindtap="confirmPickerPanel">确定</button>
+        </view>
+
+        <view class="calendar-panel" wx:if="{{pickerPanelType === 'date'}}">
+          <view class="calendar-nav">
+            <button class="calendar-nav-button" bindtap="prevCalendarMonth">‹</button>
+            <view class="calendar-month">{{calendarTitle}}</view>
+            <button class="calendar-nav-button" bindtap="nextCalendarMonth">›</button>
+          </view>
+          <view class="calendar-weekdays">
+            <view wx:for="{{weekdays}}" wx:key="*this">{{item}}</view>
+          </view>
+          <view class="calendar-grid">
+            <view
+              wx:for="{{calendarDays}}"
+              wx:key="key"
+              class="calendar-day {{item.inMonth ? '' : 'muted-day'}} {{item.disabled ? 'disabled' : ''}} {{item.value === pendingMeetingDate ? 'selected' : ''}}"
+              data-date="{{item.value}}"
+              bindtap="selectCalendarDay"
+            >
+              <text>{{item.day}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="timeline-panel" wx:if="{{pickerPanelType === 'time'}}">
+          <view class="timeline-hint">{{pendingChoosingEnd ? '开始时间已固定，再按住结束时间位置拖拽时长' : '先点一下开始时间，再拖拽结束时间；最多 6 小时'}}</view>
+          <view class="timeline-summary">{{pendingMeetingDateText}} {{pendingStartTime}} - {{pendingEndTime}}（{{pendingDurationHours}}小时）</view>
+          <view class="timeline-list" catchtouchstart="startTimeDrag" catchtouchmove="moveTimeDrag" catchtouchend="endTimeDrag">
+            <view
+              wx:for="{{timeSlots}}"
+              wx:key="hour"
+              class="timeline-row {{item.selected ? 'selected' : ''}} {{item.start ? 'start' : ''}} {{item.end ? 'end' : ''}}"
+              data-hour="{{item.hour}}"
+            >
+              <view class="timeline-hour">{{item.label}}</view>
+              <view class="timeline-cell">
+                <view class="timeline-fill" wx:if="{{item.selected}}"></view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <button class="primary-button" bindtap="submitApply">
+      {{submitting ? '提交中...' : (activeType === 'meeting' && form.needTencent ? '创建腾讯会议' : (currentType.approvalRequired ? '提交审批' : '提交登记'))}}
+    </button>
+
+    <view class="meeting-result card" wx:if="{{meetingResult}}">
+      <view class="result-title">{{meetingResult.ok ? '腾讯会议已创建' : '腾讯会议创建失败'}}</view>
+      <view class="result-line" wx:if="{{meetingResult.message}}">{{meetingResult.message}}</view>
+      <view wx:if="{{meetingResult.ok}}">
+        <view class="result-line">主题：{{meetingResult.display.title}}</view>
+        <view class="result-line">申请人：{{meetingResult.display.applicant}}</view>
+        <view class="result-line">会议时间：{{meetingResult.display.dateText}} {{meetingResult.display.timeText}}</view>
+        <view class="result-line">会议账号：{{meetingResult.meeting.account}}</view>
+        <view class="result-line">会议号：{{meetingResult.meeting.meetingCode}}</view>
+        <view class="result-line">会议 ID：{{meetingResult.meeting.meetingId}}</view>
+        <view class="result-link">{{meetingResult.meeting.joinUrl}}</view>
+        <button class="result-copy-button single" bindtap="copyMeetingInfo">复制会议信息</button>
+      </view>
+      <view class="result-line" wx:if="{{meetingResult.statusCode}}">HTTP：{{meetingResult.statusCode}}</view>
+      <view class="result-line" wx:if="{{meetingResult.trace}}">Trace：{{meetingResult.trace}}</view>
+      <view class="result-line" wx:if="{{meetingResult.rpcUuid}}">rpcUuid：{{meetingResult.rpcUuid}}</view>
+      <view wx:if="{{!meetingResult.ok && meetingResult.attempts && meetingResult.attempts.length}}">
+        <view class="result-line" wx:for="{{meetingResult.attempts}}" wx:key="account">
+          {{item.account}}：{{item.message}}
+        </view>
+      </view>
+      <view class="result-raw" wx:if="{{meetingResult.rawPreview}}">{{meetingResult.rawPreview}}</view>
+    </view>
+  </view>
+
+  <view class="section-title" wx:if="{{activeType === 'meeting'}}">
+    <text>今日申请记录</text>
+  </view>
+  <view class="list" wx:if="{{activeType === 'meeting'}}">
+    <view class="meeting-record card" wx:for="{{meetingRecords}}" wx:key="_id">
+      <view>
+        <view class="meeting-record-title">{{item.title}}</view>
+        <view class="meeting-record-meta">申请人：{{item.applicant}}</view>
+        <view class="meeting-record-meta">会议时间：{{item.dateText}} {{item.timeText}}</view>
+        <view class="meeting-record-meta">会议账号：{{item.accountText}}</view>
+        <view class="meeting-record-meta">会议号：{{item.meeting.meetingCode}}</view>
+        <view class="meeting-record-link">{{item.meeting.joinUrl}}</view>
+      </view>
+      <view class="record-actions">
+        <button class="record-copy-button" data-index="{{index}}" bindtap="copyRecordInfo">复制</button>
+        <button class="record-delete-button" wx:if="{{item.canDelete}}" data-index="{{index}}" bindtap="deleteRecord">删除</button>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{meetingRecords.length === 0}}">暂无会议记录</view>
   </view>
 
   <view class="section-title" wx:if="{{activeType === 'room'}}">

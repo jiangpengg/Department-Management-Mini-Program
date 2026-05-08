@@ -13,24 +13,33 @@ const applicationTypes = [
   {
     key: "meeting",
     name: "腾讯会议申请",
-    desc: "线上会议、参会人、会议链接需求登记",
-    icon: "会"
+    desc: "选择日期、开始时间和时长",
+    icon: "会",
+    approvalRequired: false
   },
   {
     key: "room",
     name: "会议室申请",
     desc: "会议室预约、时间冲突检查、使用记录",
-    icon: "室"
+    icon: "室",
+    approvalRequired: false
   },
   {
     key: "seal",
     name: "印章申请",
     desc: "用章类型、材料附件、审批留痕",
-    icon: "章"
+    icon: "章",
+    approvalRequired: true
   }
 ];
 
 const roles = [
+  {
+    key: "system_admin",
+    name: "最高管理人员",
+    desc: "配置全所所有人员、部门、角色和管理权限",
+    capabilities: ["apply", "approve", "task_manage", "project_manage", "system_config", "global_admin"]
+  },
   {
     key: "staff",
     name: "普通员工",
@@ -45,15 +54,21 @@ const roles = [
   },
   {
     key: "department_manager",
-    name: "部门负责人",
-    desc: "审批、任务分派、项目进度管控和部门数据查看",
-    capabilities: ["apply", "approve", "task_manage", "project_manage", "system_config"]
+    name: "部门管理人员",
+    desc: "配置全所人员权限、审批流程和部门数据",
+    capabilities: ["apply", "approve", "task_manage", "project_manage", "system_config", "global_admin"]
+  },
+  {
+    key: "section_manager",
+    name: "科室管理人员",
+    desc: "仅配置本科室人员的部门、角色和授权状态",
+    capabilities: ["apply", "approve", "department_admin"]
   },
   {
     key: "institute_leader",
     name: "所领导",
     desc: "查看全所事项、终审重点流程和项目风险",
-    capabilities: ["approve", "project_manage", "system_config", "global_view"]
+    capabilities: ["approve", "project_manage", "global_view"]
   },
   {
     key: "safety_officer",
@@ -104,9 +119,10 @@ const users = [
     id: "u001",
     name: "张明",
     department: "科技管理科",
-    role: "部门负责人",
+    role: "部门管理人员",
     roleKey: "department_manager",
     authorized: true,
+    capabilities: ["apply", "approve", "task_manage", "project_manage", "system_config", "global_admin"],
     reviewerFor: ["科技项目", "任务推送"]
   },
   {
@@ -116,6 +132,7 @@ const users = [
     role: "审核人员",
     roleKey: "reviewer",
     authorized: true,
+    capabilities: ["apply", "approve"],
     reviewerFor: ["腾讯会议", "会议室"]
   },
   {
@@ -125,6 +142,7 @@ const users = [
     role: "审核人员",
     roleKey: "reviewer",
     authorized: true,
+    capabilities: ["apply", "approve"],
     reviewerFor: ["印章"]
   },
   {
@@ -134,6 +152,7 @@ const users = [
     role: "普通员工",
     roleKey: "staff",
     authorized: true,
+    capabilities: ["apply"],
     reviewerFor: []
   },
   {
@@ -143,6 +162,7 @@ const users = [
     role: "党建员",
     roleKey: "party_officer",
     authorized: true,
+    capabilities: ["apply", "task_manage"],
     reviewerFor: []
   },
   {
@@ -152,6 +172,7 @@ const users = [
     role: "党建员",
     roleKey: "party_officer",
     authorized: true,
+    capabilities: ["apply", "task_manage"],
     reviewerFor: []
   },
   {
@@ -161,6 +182,7 @@ const users = [
     role: "访客",
     roleKey: "guest",
     authorized: false,
+    capabilities: [],
     reviewerFor: []
   }
 ];
@@ -168,24 +190,28 @@ const users = [
 const approvalFlows = [
   {
     type: "腾讯会议",
+    approvalRequired: false,
     steps: ["申请人提交", "部门审核人员审核", "部门负责人确认"],
     reviewer: "王珂",
     leader: "张明"
   },
   {
     type: "会议室",
+    approvalRequired: false,
     steps: ["申请人提交", "综合办公室审核", "自动写入会议室台账"],
     reviewer: "王珂",
     leader: "沈越"
   },
   {
     type: "印章",
+    approvalRequired: true,
     steps: ["申请人提交", "综合办公室初审", "所领导终审", "用章登记"],
     reviewer: "赵敏",
     leader: "沈越"
   },
   {
     type: "科技项目",
+    approvalRequired: true,
     steps: ["项目负责人更新", "部门负责人审核", "所领导查看风险"],
     reviewer: "张明",
     leader: "所领导"
@@ -199,7 +225,8 @@ const applications = [
     title: "省级科技项目启动会",
     applicant: "刘洋",
     time: "2026-05-06 09:30",
-    status: "pending",
+    status: "approved",
+    approvalRequired: false,
     detail: "申请创建腾讯会议，预计 18 人参会。"
   },
   {
@@ -209,6 +236,7 @@ const applications = [
     applicant: "周倩",
     time: "2026-05-07 14:00",
     status: "approved",
+    approvalRequired: false,
     detail: "项目评审会，需投影和视频设备。"
   },
   {
@@ -218,6 +246,7 @@ const applications = [
     applicant: "陈宁",
     time: "2026-05-08 10:00",
     status: "pending",
+    approvalRequired: true,
     detail: "合同章 3 份，附件已上传。"
   }
 ];
@@ -299,7 +328,7 @@ function getStatusMeta(status) {
 }
 
 function buildDashboard() {
-  const pendingApprovals = applications.filter((item) => item.status === "pending").length;
+  const pendingApprovals = applications.filter((item) => item.approvalRequired && item.status === "pending").length;
   const activeTasks = tasks.filter((item) => item.status !== "done").length;
   const riskProjects = projects.filter((item) => item.status === "risk").length;
   const todayMeetings = applications.filter((item) => item.type !== "印章").length;

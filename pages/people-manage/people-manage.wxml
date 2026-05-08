@@ -1,0 +1,28 @@
+<view class="page">
+  <view class="admin-head card">
+    <view>
+      <view class="admin-title">人员管理</view>
+      <view class="admin-subtitle">为进入小程序的人员设置授权、部门和角色</view>
+    </view>
+  </view>
+
+  <view class="list">
+    <view class="user-card card" wx:for="{{users}}" wx:key="id">
+      <view class="user-main">
+        <view class="user-name">{{item.name}}</view>
+        <view class="user-meta">{{item.openid || item.id}}</view>
+        <view class="user-meta">{{item.department}} · {{item.role}}</view>
+        <view class="mini-actions">
+          <picker range="{{departmentNames}}" data-id="{{item.id}}" bindchange="setDepartment">
+            <view class="mini-chip">设置部门</view>
+          </picker>
+          <picker range="{{roleNames}}" data-id="{{item.id}}" bindchange="setRole">
+            <view class="mini-chip">设置角色</view>
+          </picker>
+          <button class="mini-chip" data-id="{{item.id}}" bindtap="toggleAuthorized">{{item.authorized ? '禁用' : '授权'}}</button>
+        </view>
+      </view>
+      <view class="auth-tag {{item.authorized ? 'on' : 'off'}}">{{item.authorized ? '已授权' : '未授权'}}</view>
+    </view>
+  </view>
+</view>

@@ -1,31 +1,33 @@
 const { departments, users, roles } = require("../../utils/mock");
-const { ensureAuthorized, hasCapability } = require("../../utils/auth");
+const { ensureAuthorized, getCurrentUser, canManageSystem, canManageDepartment } = require("../../utils/auth");
 
 Page({
   data: {
     department: {},
     members: [],
     allUsers: [],
-    departmentNames: [],
-    roleNames: [],
-    authorizedUserNames: []
+    searchKeyword: "",
+    searchResults: []
   },
 
   onLoad(options) {
     if (!ensureAuthorized()) return;
-    if (!hasCapability("system_config")) {
+    if (!canManageDepartment()) {
       wx.showToast({ title: "无科室配置权限", icon: "none" });
-      wx.navigateBack();
+      wx.switchTab({ url: "/pages/profile/profile" });
       return;
     }
 
     const department = departments.find((item) => item.id === options.id) || departments[0];
+    if (!canManageSystem() && department.name !== getCurrentUser().department) {
+      wx.showToast({ title: "只能管理本科室", icon: "none" });
+      wx.switchTab({ url: "/pages/profile/profile" });
+      return;
+    }
+
     this.setData({
       department,
-      allUsers: users,
-      departmentNames: departments.map((item) => item.name),
-      roleNames: roles.map((item) => item.name),
-      authorizedUserNames: users.filter((item) => item.authorized).map((item) => item.name)
+      allUsers: users
     });
     this.refreshMembers(department.name, users);
   },
@@ -36,65 +38,35 @@ Page({
     });
   },
 
-  setDeptPerson(event) {
-    const field = event.currentTarget.dataset.field;
-    const user = this.data.authorizedUserNames[Number(event.detail.value)];
-    if (!user) return;
+  onSearch(event) {
+    const keyword = event.detail.value.trim();
+    const members = new Set(this.data.members.map((item) => item.id));
     this.setData({
-      department: { ...this.data.department, [field]: user }
+      searchKeyword: keyword,
+      searchResults: keyword
+        ? this.data.allUsers.filter((item) => item.name.includes(keyword) && !members.has(item.id))
+        : []
     });
-    this.showDraftToast("已更新岗位");
   },
 
-  addMember() {
-    const index = this.data.allUsers.length + 1;
-    const member = {
-      id: `u${Date.now()}`,
-      name: `新增人员${index}`,
-      department: this.data.department.name,
-      role: "普通员工",
-      roleKey: "staff",
-      authorized: true,
-      reviewerFor: []
-    };
-    const usersNext = [...this.data.allUsers, member];
-    this.setData({ allUsers: usersNext });
+  addExistingMember(event) {
+    const userId = event.currentTarget.dataset.id;
+    const usersNext = this.data.allUsers.map((item) => (
+      item.id === userId ? { ...item, department: this.data.department.name, authorized: true } : item
+    ));
+    this.setData({ allUsers: usersNext, searchKeyword: "", searchResults: [] });
     this.refreshMembers(this.data.department.name, usersNext);
-    this.showDraftToast("已新增人员");
+    this.showDraftToast("已加入科室");
   },
 
   removeMember(event) {
     const userId = event.currentTarget.dataset.id;
     const usersNext = this.data.allUsers.map((item) => (
-      item.id === userId ? { ...item, department: "未分配", authorized: false } : item
+      item.id === userId ? { ...item, department: "未分配" } : item
     ));
     this.setData({ allUsers: usersNext });
     this.refreshMembers(this.data.department.name, usersNext);
-    this.showDraftToast("已移出人员");
-  },
-
-  moveUserDepartment(event) {
-    const userId = event.currentTarget.dataset.id;
-    const department = this.data.departmentNames[Number(event.detail.value)];
-    if (!department) return;
-    const usersNext = this.data.allUsers.map((item) => (
-      item.id === userId ? { ...item, department } : item
-    ));
-    this.setData({ allUsers: usersNext });
-    this.refreshMembers(this.data.department.name, usersNext);
-    this.showDraftToast("已调整科室");
-  },
-
-  changeUserRole(event) {
-    const userId = event.currentTarget.dataset.id;
-    const role = roles[Number(event.detail.value)];
-    if (!role) return;
-    const usersNext = this.data.allUsers.map((item) => (
-      item.id === userId ? { ...item, role: role.name, roleKey: role.key } : item
-    ));
-    this.setData({ allUsers: usersNext });
-    this.refreshMembers(this.data.department.name, usersNext);
-    this.showDraftToast("已调整角色");
+    this.showDraftToast("已移出科室");
   },
 
   showDraftToast(title) {

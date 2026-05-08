@@ -1,0 +1,80 @@
+.admin-head {
+  padding: 30rpx;
+  margin-bottom: 22rpx;
+}
+
+.admin-title {
+  font-size: 38rpx;
+  font-weight: 900;
+}
+
+.admin-subtitle {
+  margin-top: 10rpx;
+  color: #6b7773;
+  font-size: 26rpx;
+}
+
+.user-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 24rpx;
+}
+
+.user-main {
+  min-width: 0;
+}
+
+.user-name {
+  font-size: 30rpx;
+  font-weight: 900;
+}
+
+.user-meta {
+  margin-top: 8rpx;
+  color: #6b7773;
+  font-size: 24rpx;
+}
+
+.mini-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.mini-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 108rpx;
+  height: 48rpx;
+  padding: 0 16rpx;
+  border: 1rpx solid #d7e1de;
+  border-radius: 999rpx;
+  color: #40504b;
+  background: #ffffff;
+  font-size: 23rpx;
+  line-height: 48rpx;
+}
+
+.auth-tag {
+  min-width: 104rpx;
+  height: 42rpx;
+  border-radius: 999rpx;
+  text-align: center;
+  line-height: 42rpx;
+  font-size: 23rpx;
+  font-weight: 800;
+}
+
+.auth-tag.on {
+  color: #126a45;
+  background: #dff5e9;
+}
+
+.auth-tag.off {
+  color: #a02727;
+  background: #ffe2e0;
+}

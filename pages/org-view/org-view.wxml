@@ -1,0 +1,41 @@
+<view class="page">
+  <view class="org-head card">
+    <view>
+      <view class="org-title">组织架构</view>
+      <view class="org-subtitle">查看领导、科室、人员和角色信息</view>
+    </view>
+    <view class="org-badge">只读</view>
+  </view>
+
+  <view class="section-title">
+    <text>领导与管理</text>
+  </view>
+  <view class="list">
+    <view class="leader-card card" wx:for="{{leaders}}" wx:key="name">
+      <view class="leader-name">{{item.name}}</view>
+      <view class="leader-meta">{{item.department}} · {{item.role}}</view>
+    </view>
+  </view>
+
+  <view class="section-title">
+    <text>科室人员</text>
+  </view>
+  <view class="list">
+    <view class="dept-card card" wx:for="{{departments}}" wx:key="id">
+      <view class="dept-head">
+        <view>
+          <view class="dept-name">{{item.name}}</view>
+          <view class="dept-meta">负责人：{{item.leader}} · 审核：{{item.reviewer}}</view>
+          <view class="dept-meta">安全员：{{item.safetyOfficer}} · 党建员：{{item.partyOfficer}}</view>
+        </view>
+        <view class="dept-count">{{item.members.length}}人</view>
+      </view>
+      <view class="member-list">
+        <view class="member" wx:for="{{item.members}}" wx:for-item="member" wx:key="id">
+          <text>{{member.name}}</text>
+          <text>{{member.role}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

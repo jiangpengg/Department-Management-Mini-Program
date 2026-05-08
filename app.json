@@ -7,6 +7,8 @@
     "pages/projects/projects",
     "pages/profile/profile",
     "pages/admin/admin",
+    "pages/org-view/org-view",
+    "pages/people-manage/people-manage",
     "pages/department-manage/department-manage",
     "pages/department-detail/department-detail",
     "pages/access-denied/access-denied"

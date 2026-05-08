@@ -1,0 +1,79 @@
+.org-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 30rpx;
+}
+
+.org-title {
+  font-size: 38rpx;
+  font-weight: 900;
+}
+
+.org-subtitle {
+  margin-top: 10rpx;
+  color: #6b7773;
+  font-size: 26rpx;
+}
+
+.org-badge {
+  min-width: 82rpx;
+  height: 46rpx;
+  border-radius: 999rpx;
+  color: #1f5f54;
+  background: #dff5e9;
+  text-align: center;
+  line-height: 46rpx;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.leader-card,
+.dept-card {
+  padding: 24rpx;
+}
+
+.leader-name,
+.dept-name {
+  font-size: 30rpx;
+  font-weight: 900;
+}
+
+.leader-meta,
+.dept-meta {
+  margin-top: 8rpx;
+  color: #6b7773;
+  font-size: 24rpx;
+  line-height: 1.45;
+}
+
+.dept-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.dept-count {
+  color: #1f5f54;
+  font-size: 30rpx;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.member-list {
+  display: grid;
+  gap: 12rpx;
+  margin-top: 20rpx;
+}
+
+.member {
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 16rpx 18rpx;
+  border-radius: 8rpx;
+  color: #40504b;
+  background: #f4f7f6;
+  font-size: 25rpx;
+}

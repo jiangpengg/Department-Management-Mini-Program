@@ -1,5 +1,5 @@
 const { departments, users } = require("../../utils/mock");
-const { ensureAuthorized, hasCapability } = require("../../utils/auth");
+const { ensureAuthorized, canManageSystem } = require("../../utils/auth");
 
 Page({
   data: {
@@ -8,9 +8,9 @@ Page({
 
   onLoad() {
     if (!ensureAuthorized()) return;
-    if (!hasCapability("system_config")) {
+    if (!canManageSystem()) {
       wx.showToast({ title: "无科室管理权限", icon: "none" });
-      wx.navigateBack();
+      wx.switchTab({ url: "/pages/profile/profile" });
       return;
     }
     this.setData({ departments: this.decorateDepartments(departments) });
