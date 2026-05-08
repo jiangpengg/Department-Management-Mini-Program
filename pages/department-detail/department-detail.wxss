@@ -1,0 +1,103 @@
+.admin-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 30rpx;
+}
+
+.admin-title {
+  font-size: 38rpx;
+  font-weight: 900;
+}
+
+.admin-subtitle {
+  margin-top: 10rpx;
+  color: #6b7773;
+  font-size: 26rpx;
+}
+
+.text-button {
+  min-width: 92rpx;
+  height: 52rpx;
+  border: 1rpx solid #b9c9c4;
+  border-radius: 999rpx;
+  color: #1f5f54;
+  background: #ffffff;
+  font-size: 24rpx;
+  font-weight: 800;
+  line-height: 52rpx;
+}
+
+.access-card {
+  padding: 8rpx 28rpx;
+}
+
+.access-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid #edf2f0;
+  color: #40504b;
+  font-size: 26rpx;
+}
+
+.access-row:last-child {
+  border-bottom: 0;
+}
+
+.user-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 24rpx;
+}
+
+.user-main {
+  min-width: 0;
+}
+
+.user-name {
+  font-size: 30rpx;
+  font-weight: 900;
+}
+
+.user-meta {
+  margin-top: 8rpx;
+  color: #6b7773;
+  font-size: 24rpx;
+}
+
+.mini-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.mini-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 108rpx;
+  height: 48rpx;
+  padding: 0 16rpx;
+  border: 1rpx solid #d7e1de;
+  border-radius: 999rpx;
+  color: #40504b;
+  background: #ffffff;
+  font-size: 23rpx;
+  line-height: 48rpx;
+}
+
+.danger-link {
+  min-width: 80rpx;
+  height: 44rpx;
+  color: #a02727;
+  background: transparent;
+  font-size: 24rpx;
+  font-weight: 800;
+  line-height: 44rpx;
+}

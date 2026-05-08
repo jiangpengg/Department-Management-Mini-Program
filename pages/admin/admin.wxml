@@ -27,32 +27,18 @@
 
   <view class="section-title">
     <text>科室设置</text>
-    <button class="text-button" bindtap="addDepartment">新增</button>
+    <button class="text-button" bindtap="goDepartmentManage">管理</button>
   </view>
   <view class="list">
-    <view class="dept-card card" wx:for="{{departments}}" wx:key="id">
+    <view class="dept-card card" wx:for="{{departments}}" wx:key="id" data-id="{{item.id}}" bindtap="goDepartmentDetail">
       <view class="dept-main">
         <view class="dept-name">{{item.name}}</view>
         <view class="dept-meta">负责人：{{item.leader}} · 审核人员：{{item.reviewer}}</view>
         <view class="dept-meta">安全员：{{item.safetyOfficer}} · 党建员：{{item.partyOfficer}}</view>
-        <view class="mini-actions">
-          <picker range="{{authorizedUserNames}}" data-id="{{item.id}}" data-field="leader" bindchange="setDeptPerson">
-            <view class="mini-chip">设负责人</view>
-          </picker>
-          <picker range="{{authorizedUserNames}}" data-id="{{item.id}}" data-field="reviewer" bindchange="setDeptPerson">
-            <view class="mini-chip">设审核人</view>
-          </picker>
-          <picker range="{{authorizedUserNames}}" data-id="{{item.id}}" data-field="safetyOfficer" bindchange="setDeptPerson">
-            <view class="mini-chip">设安全员</view>
-          </picker>
-          <picker range="{{authorizedUserNames}}" data-id="{{item.id}}" data-field="partyOfficer" bindchange="setDeptPerson">
-            <view class="mini-chip">设党建员</view>
-          </picker>
-        </view>
       </view>
       <view class="side-actions">
         <view class="dept-count">{{item.memberCount}}人</view>
-        <button class="danger-link" data-id="{{item.id}}" bindtap="deleteDepartment">删除</button>
+        <text class="arrow">›</text>
       </view>
     </view>
   </view>
@@ -66,31 +52,8 @@
         <view class="user-name">{{item.name}}</view>
         <view class="user-meta">{{item.department}} · {{item.role}}</view>
         <view class="reviewer-for" wx:if="{{item.reviewerFor.length}}">负责审核：{{item.reviewerForText}}</view>
-        <view class="mini-actions">
-          <picker range="{{departmentNames}}" data-id="{{item.id}}" bindchange="moveUserDepartment">
-            <view class="mini-chip">调整科室</view>
-          </picker>
-          <picker range="{{roleNames}}" data-id="{{item.id}}" bindchange="changeUserRole">
-            <view class="mini-chip">调整角色</view>
-          </picker>
-        </view>
       </view>
       <view class="auth-tag {{item.authorized ? 'on' : 'off'}}">{{item.authorized ? '已授权' : '禁用'}}</view>
-    </view>
-  </view>
-
-  <view class="section-title">
-    <text>角色设定</text>
-    <button class="text-button" bindtap="addRole">新增</button>
-  </view>
-  <view class="list">
-    <view class="role-card card" wx:for="{{roles}}" wx:key="key">
-      <view class="role-main">
-        <view class="role-name">{{item.name}}</view>
-        <view class="role-desc">{{item.desc}}</view>
-        <view class="role-capability">{{item.capabilityText}}</view>
-      </view>
-      <button class="danger-link" data-key="{{item.key}}" bindtap="deleteRole">删除</button>
     </view>
   </view>
 

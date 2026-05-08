@@ -1,0 +1,64 @@
+.admin-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 30rpx;
+  margin-bottom: 22rpx;
+}
+
+.admin-title {
+  font-size: 38rpx;
+  font-weight: 900;
+}
+
+.admin-subtitle {
+  margin-top: 10rpx;
+  color: #6b7773;
+  font-size: 26rpx;
+}
+
+.text-button {
+  min-width: 92rpx;
+  height: 52rpx;
+  border: 1rpx solid #b9c9c4;
+  border-radius: 999rpx;
+  color: #1f5f54;
+  background: #ffffff;
+  font-size: 24rpx;
+  font-weight: 800;
+  line-height: 52rpx;
+}
+
+.dept-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 24rpx;
+}
+
+.dept-main {
+  min-width: 0;
+}
+
+.dept-name {
+  font-size: 30rpx;
+  font-weight: 900;
+}
+
+.dept-meta {
+  margin-top: 8rpx;
+  color: #6b7773;
+  font-size: 24rpx;
+}
+
+.danger-link {
+  min-width: 80rpx;
+  height: 44rpx;
+  color: #a02727;
+  background: transparent;
+  font-size: 24rpx;
+  font-weight: 800;
+  line-height: 44rpx;
+}
