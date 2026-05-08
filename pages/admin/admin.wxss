@@ -47,10 +47,23 @@
   border-bottom: 0;
 }
 
+.text-button {
+  min-width: 92rpx;
+  height: 52rpx;
+  border: 1rpx solid #b9c9c4;
+  border-radius: 999rpx;
+  color: #1f5f54;
+  background: #ffffff;
+  font-size: 24rpx;
+  font-weight: 800;
+  line-height: 52rpx;
+}
+
 .dept-card,
-.user-card {
+.user-card,
+.role-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 20rpx;
   padding: 24rpx;
@@ -58,6 +71,7 @@
 
 .dept-name,
 .user-name,
+.role-name,
 .flow-title {
   font-size: 30rpx;
   font-weight: 900;
@@ -66,11 +80,18 @@
 .dept-meta,
 .user-meta,
 .flow-meta,
-.reviewer-for {
+.reviewer-for,
+.role-desc,
+.role-capability {
   margin-top: 8rpx;
   color: #6b7773;
   font-size: 24rpx;
   line-height: 1.45;
+}
+
+.role-capability {
+  color: #1f5f54;
+  font-weight: 700;
 }
 
 .dept-count {
@@ -80,8 +101,54 @@
   white-space: nowrap;
 }
 
+.dept-main,
 .user-main {
   min-width: 0;
+}
+
+.role-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.side-actions {
+  display: grid;
+  justify-items: end;
+  gap: 16rpx;
+  white-space: nowrap;
+}
+
+.mini-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.mini-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 108rpx;
+  height: 48rpx;
+  padding: 0 16rpx;
+  border: 1rpx solid #d7e1de;
+  border-radius: 999rpx;
+  color: #40504b;
+  background: #ffffff;
+  font-size: 23rpx;
+  line-height: 48rpx;
+}
+
+.danger-link {
+  min-width: 80rpx;
+  height: 44rpx;
+  color: #a02727;
+  background: transparent;
+  font-size: 24rpx;
+  font-weight: 800;
+  line-height: 44rpx;
+  text-align: right;
 }
 
 .auth-tag {

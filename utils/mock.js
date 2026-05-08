@@ -54,15 +54,29 @@ const roles = [
     name: "所领导",
     desc: "查看全所事项、终审重点流程和项目风险",
     capabilities: ["approve", "project_manage", "system_config", "global_view"]
+  },
+  {
+    key: "safety_officer",
+    name: "安全员",
+    desc: "负责本科室安全事项提醒、台账和风险反馈",
+    capabilities: ["apply", "task_manage"]
+  },
+  {
+    key: "party_officer",
+    name: "党建员",
+    desc: "负责本科室党建任务、材料提醒和活动记录",
+    capabilities: ["apply", "task_manage"]
   }
 ];
 
 const departments = [
   {
     id: "d001",
-    name: "科技管理部",
+    name: "科技管理科",
     leader: "张明",
     reviewer: "王珂",
+    safetyOfficer: "刘洋",
+    partyOfficer: "秦佳",
     memberCount: 12
   },
   {
@@ -70,13 +84,17 @@ const departments = [
     name: "综合办公室",
     leader: "沈越",
     reviewer: "赵敏",
+    safetyOfficer: "陈宁",
+    partyOfficer: "周倩",
     memberCount: 8
   },
   {
     id: "d003",
-    name: "工程技术中心",
+    name: "工程技术科",
     leader: "秦佳",
     reviewer: "陈宁",
+    safetyOfficer: "王珂",
+    partyOfficer: "赵敏",
     memberCount: 21
   }
 ];
@@ -85,7 +103,7 @@ const users = [
   {
     id: "u001",
     name: "张明",
-    department: "科技管理部",
+    department: "科技管理科",
     role: "部门负责人",
     roleKey: "department_manager",
     authorized: true,
@@ -94,7 +112,7 @@ const users = [
   {
     id: "u002",
     name: "王珂",
-    department: "科技管理部",
+    department: "科技管理科",
     role: "审核人员",
     roleKey: "reviewer",
     authorized: true,
@@ -112,9 +130,27 @@ const users = [
   {
     id: "u004",
     name: "刘洋",
-    department: "科技管理部",
+    department: "科技管理科",
     role: "普通员工",
     roleKey: "staff",
+    authorized: true,
+    reviewerFor: []
+  },
+  {
+    id: "u006",
+    name: "秦佳",
+    department: "工程技术科",
+    role: "党建员",
+    roleKey: "party_officer",
+    authorized: true,
+    reviewerFor: []
+  },
+  {
+    id: "u007",
+    name: "周倩",
+    department: "综合办公室",
+    role: "党建员",
+    roleKey: "party_officer",
     authorized: true,
     reviewerFor: []
   },
