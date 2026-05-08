@@ -1,0 +1,94 @@
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+  padding: 30rpx;
+}
+
+.summary-title {
+  font-size: 36rpx;
+  font-weight: 900;
+}
+
+.summary-subtitle {
+  margin-top: 10rpx;
+  color: #6b7773;
+  font-size: 25rpx;
+}
+
+.summary-count {
+  color: #1f5f54;
+  font-size: 58rpx;
+  font-weight: 900;
+}
+
+.project-card {
+  padding: 26rpx;
+}
+
+.project-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.project-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 32rpx;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.stage-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 22rpx;
+  color: #40504b;
+  font-size: 25rpx;
+  font-weight: 700;
+}
+
+.progress {
+  height: 16rpx;
+  margin-top: 14rpx;
+  overflow: hidden;
+  border-radius: 999rpx;
+  background: #e7eeeb;
+}
+
+.progress-bar {
+  height: 100%;
+  border-radius: 999rpx;
+  background: #1f5f54;
+}
+
+.progress-bar.risk {
+  background: #c45a4a;
+}
+
+.project-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22rpx;
+  margin-top: 26rpx;
+}
+
+.label,
+.value {
+  display: block;
+}
+
+.label {
+  color: #6b7773;
+  font-size: 23rpx;
+}
+
+.value {
+  margin-top: 8rpx;
+  color: #17211e;
+  font-size: 26rpx;
+  font-weight: 700;
+}

@@ -1,0 +1,29 @@
+<view class="page">
+  <view class="task-toolbar">
+    <view>
+      <view class="page-title">任务推送</view>
+      <view class="page-subtitle">分派、跟踪、催办和完成反馈</view>
+    </view>
+    <button class="add-button" bindtap="createTask">+</button>
+  </view>
+
+  <view class="list">
+    <view class="task-card card" wx:for="{{tasks}}" wx:key="id">
+      <view class="task-head">
+        <view class="task-title">{{item.title}}</view>
+        <status-pill text="{{item.statusText}}" tone="{{item.statusTone}}" />
+      </view>
+      <view class="task-meta">
+        <text>负责人：{{item.owner}}</text>
+        <text>截止：{{item.deadline}}</text>
+      </view>
+      <view class="progress">
+        <view class="progress-bar" style="width: {{item.progress}}%;"></view>
+      </view>
+      <view class="task-footer">
+        <view class="priority">优先级：{{item.priority}}</view>
+        <button class="mini-button" data-id="{{item.id}}" bindtap="finishTask">完成</button>
+      </view>
+    </view>
+  </view>
+</view>

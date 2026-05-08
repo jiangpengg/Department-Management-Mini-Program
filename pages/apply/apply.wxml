@@ -1,0 +1,69 @@
+<view class="page">
+  <view class="type-tabs card">
+    <view wx:for="{{types}}" wx:key="key" class="type-tab {{activeType === item.key ? 'active' : ''}}" data-type="{{item.key}}" bindtap="switchType">
+      <text>{{item.name}}</text>
+    </view>
+  </view>
+
+  <view class="form card">
+    <view class="form-title">{{currentType.name}}</view>
+    <view class="form-subtitle">{{currentType.desc}}</view>
+
+    <view class="field">
+      <view class="label">申请主题</view>
+      <input value="{{form.title}}" data-field="title" bindinput="onInput" placeholder="请输入申请主题" />
+    </view>
+
+    <view class="field">
+      <view class="label">使用时间</view>
+      <input value="{{form.time}}" data-field="time" bindinput="onInput" placeholder="例如 2026-05-06 09:30" />
+    </view>
+
+    <view class="field" wx:if="{{activeType === 'meeting'}}">
+      <view class="label">参会人员</view>
+      <input value="{{form.attendees}}" data-field="attendees" bindinput="onInput" placeholder="填写姓名，多个用逗号隔开" />
+    </view>
+
+    <view class="field" wx:if="{{activeType === 'meeting'}}">
+      <view class="label">会议需求</view>
+      <view class="check-row" bindtap="toggleTencent">
+        <view class="checkbox {{form.needTencent ? 'checked' : ''}}"></view>
+        <text>需要创建腾讯会议链接</text>
+      </view>
+    </view>
+
+    <view class="field" wx:if="{{activeType === 'room'}}">
+      <view class="label">会议室</view>
+      <picker range="{{roomNames}}" value="{{roomIndex}}" bindchange="onRoomChange">
+        <view class="picker-value">{{roomNames[roomIndex]}}</view>
+      </picker>
+    </view>
+
+    <view class="field" wx:if="{{activeType === 'seal'}}">
+      <view class="label">印章类型</view>
+      <picker range="{{sealTypes}}" value="{{sealIndex}}" bindchange="onSealChange">
+        <view class="picker-value">{{sealTypes[sealIndex]}}</view>
+      </picker>
+    </view>
+
+    <view class="field">
+      <view class="label">申请说明</view>
+      <textarea value="{{form.remark}}" data-field="remark" bindinput="onInput" placeholder="补充用途、背景、材料清单或审批说明" />
+    </view>
+
+    <button class="primary-button" bindtap="submitApply">提交申请</button>
+  </view>
+
+  <view class="section-title" wx:if="{{activeType === 'room'}}">
+    <text>会议室占用</text>
+  </view>
+  <view class="list" wx:if="{{activeType === 'room'}}">
+    <view class="slot card" wx:for="{{roomSlots}}" wx:key="room">
+      <view>
+        <view class="slot-room">{{item.room}}</view>
+        <view class="slot-time">{{item.time}}</view>
+      </view>
+      <view class="slot-status {{item.status}}">{{item.status === 'busy' ? '已占用' : '可预约'}}</view>
+    </view>
+  </view>
+</view>

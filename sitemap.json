@@ -1,0 +1,9 @@
+{
+  "desc": "No indexing configuration required for internal department mini program.",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}

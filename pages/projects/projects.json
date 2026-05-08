@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "科技项目",
+  "usingComponents": {
+    "status-pill": "/components/status-pill/status-pill"
+  }
+}

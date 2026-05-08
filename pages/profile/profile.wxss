@@ -1,0 +1,71 @@
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding: 34rpx;
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 18rpx;
+  color: #ffffff;
+  background: #1f5f54;
+  font-size: 36rpx;
+  font-weight: 900;
+}
+
+.name {
+  font-size: 36rpx;
+  font-weight: 900;
+}
+
+.dept {
+  margin-top: 10rpx;
+  color: #6b7773;
+  font-size: 26rpx;
+}
+
+.menu {
+  overflow: hidden;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 92rpx;
+  padding: 0 28rpx;
+  border-bottom: 1rpx solid #edf2f0;
+  font-size: 29rpx;
+  font-weight: 700;
+}
+
+.menu-item:last-child {
+  border-bottom: 0;
+}
+
+.arrow {
+  color: #9aa7a2;
+  font-size: 42rpx;
+  font-weight: 400;
+}
+
+.roadmap {
+  padding: 8rpx 28rpx;
+}
+
+.roadmap-item {
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #edf2f0;
+  color: #40504b;
+  font-size: 27rpx;
+  line-height: 1.45;
+}
+
+.roadmap-item:last-child {
+  border-bottom: 0;
+}

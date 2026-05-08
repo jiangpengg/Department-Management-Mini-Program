@@ -1,0 +1,30 @@
+<view class="page">
+  <view class="filter card">
+    <view wx:for="{{filters}}" wx:key="key" class="filter-item {{activeFilter === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="switchFilter">
+      {{item.name}}
+    </view>
+  </view>
+
+  <view class="list">
+    <view class="approval-card card" wx:for="{{visibleApplications}}" wx:key="id">
+      <view class="approval-head">
+        <view>
+          <view class="type">{{item.type}}</view>
+          <view class="title">{{item.title}}</view>
+        </view>
+        <status-pill text="{{item.statusText}}" tone="{{item.statusTone}}" />
+      </view>
+      <view class="detail">{{item.detail}}</view>
+      <view class="meta">
+        <text>申请人：{{item.applicant}}</text>
+        <text>{{item.time}}</text>
+      </view>
+      <view class="actions" wx:if="{{item.status === 'pending'}}">
+        <button class="ghost-button" data-id="{{item.id}}" data-action="reject" bindtap="handleApproval">驳回</button>
+        <button class="primary-button" data-id="{{item.id}}" data-action="approve" bindtap="handleApproval">通过</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{visibleApplications.length === 0}}">暂无相关审批</view>
+</view>

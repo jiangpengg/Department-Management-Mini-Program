@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "任务",
+  "usingComponents": {
+    "status-pill": "/components/status-pill/status-pill"
+  }
+}

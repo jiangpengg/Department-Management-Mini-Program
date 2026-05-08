@@ -1,0 +1,54 @@
+<view class="page">
+  <view class="hero">
+    <view>
+      <view class="hero-kicker">{{user.department}}</view>
+      <view class="hero-title">部门事务工作台</view>
+      <view class="hero-subtitle">{{user.name}} · {{user.role}}</view>
+    </view>
+    <view class="hero-date">5月1日</view>
+  </view>
+
+  <view class="metrics">
+    <view class="metric card" wx:for="{{metrics}}" wx:key="label">
+      <view class="metric-value">{{item.value}}<text>{{item.unit}}</text></view>
+      <view class="metric-label">{{item.label}}</view>
+    </view>
+  </view>
+
+  <view class="section-title">
+    <text>快捷申请</text>
+  </view>
+  <view class="quick-grid">
+    <view class="quick-card card" wx:for="{{applicationTypes}}" wx:key="key" bindtap="goApply" data-type="{{item.key}}">
+      <view class="quick-icon">{{item.icon}}</view>
+      <view class="quick-name">{{item.name}}</view>
+      <view class="quick-desc">{{item.desc}}</view>
+    </view>
+  </view>
+
+  <view class="section-title">
+    <text>最近申请</text>
+    <text class="more" bindtap="goApproval">全部</text>
+  </view>
+  <view class="list">
+    <view class="application card" wx:for="{{applications}}" wx:key="id">
+      <view class="application-main">
+        <view class="application-type">{{item.type}}</view>
+        <view class="application-title">{{item.title}}</view>
+        <view class="application-meta">{{item.applicant}} · {{item.time}}</view>
+      </view>
+      <status-pill text="{{item.statusText}}" tone="{{item.statusTone}}" />
+    </view>
+  </view>
+
+  <view class="section-title">
+    <text>项目提醒</text>
+  </view>
+  <view class="project-alert card">
+    <view>
+      <view class="project-alert-title">{{riskProject.name}}</view>
+      <view class="project-alert-meta">{{riskProject.stage}} · {{riskProject.nextNode}}</view>
+    </view>
+    <view class="project-alert-progress">{{riskProject.progress}}%</view>
+  </view>
+</view>

@@ -1,0 +1,43 @@
+<view class="page">
+  <view class="summary card">
+    <view>
+      <view class="summary-title">科技项目进度管控</view>
+      <view class="summary-subtitle">节点、材料、经费和风险状态统一跟踪</view>
+    </view>
+    <view class="summary-count">{{projects.length}}</view>
+  </view>
+
+  <view class="list">
+    <view class="project-card card" wx:for="{{projects}}" wx:key="id">
+      <view class="project-head">
+        <view class="project-name">{{item.name}}</view>
+        <status-pill text="{{item.statusText}}" tone="{{item.statusTone}}" />
+      </view>
+      <view class="stage-row">
+        <text>{{item.stage}}</text>
+        <text>{{item.progress}}%</text>
+      </view>
+      <view class="progress">
+        <view class="progress-bar {{item.status === 'risk' ? 'risk' : ''}}" style="width: {{item.progress}}%;"></view>
+      </view>
+      <view class="project-grid">
+        <view>
+          <text class="label">负责人</text>
+          <text class="value">{{item.leader}}</text>
+        </view>
+        <view>
+          <text class="label">下一节点</text>
+          <text class="value">{{item.nextNode}}</text>
+        </view>
+        <view>
+          <text class="label">截止日期</text>
+          <text class="value">{{item.deadline}}</text>
+        </view>
+        <view>
+          <text class="label">预算</text>
+          <text class="value">{{item.budget}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

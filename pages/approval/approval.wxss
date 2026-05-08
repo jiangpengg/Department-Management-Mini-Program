@@ -1,0 +1,72 @@
+.filter {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 8rpx;
+  margin-bottom: 22rpx;
+}
+
+.filter-item {
+  min-height: 68rpx;
+  border-radius: 8rpx;
+  color: #66726e;
+  text-align: center;
+  line-height: 68rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+}
+
+.filter-item.active {
+  color: #ffffff;
+  background: #1f5f54;
+}
+
+.approval-card {
+  padding: 26rpx;
+}
+
+.approval-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.type {
+  color: #1f5f54;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.title {
+  margin-top: 8rpx;
+  font-size: 32rpx;
+  font-weight: 900;
+}
+
+.detail {
+  margin-top: 18rpx;
+  color: #46534f;
+  font-size: 27rpx;
+  line-height: 1.55;
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin-top: 18rpx;
+  color: #6b7773;
+  font-size: 24rpx;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18rpx;
+  margin-top: 24rpx;
+}
+
+.actions .primary-button,
+.actions .ghost-button {
+  height: 76rpx;
+}

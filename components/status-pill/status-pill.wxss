@@ -1,0 +1,36 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 104rpx;
+  height: 44rpx;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+.gray {
+  color: #5f6b66;
+  background: #edf1ef;
+}
+
+.amber {
+  color: #8a5400;
+  background: #fff1cc;
+}
+
+.green {
+  color: #126a45;
+  background: #dff5e9;
+}
+
+.red {
+  color: #a02727;
+  background: #ffe2e0;
+}
+
+.blue {
+  color: #1e5a9d;
+  background: #dfeeff;
+}

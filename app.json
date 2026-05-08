@@ -1,0 +1,49 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/apply/apply",
+    "pages/approval/approval",
+    "pages/tasks/tasks",
+    "pages/projects/projects",
+    "pages/profile/profile"
+  ],
+  "window": {
+    "navigationBarTitleText": "部门事务管理",
+    "navigationBarBackgroundColor": "#1f5f54",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f4f7f6"
+  },
+  "tabBar": {
+    "color": "#68736f",
+    "selectedColor": "#1f5f54",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "工作台"
+      },
+      {
+        "pagePath": "pages/approval/approval",
+        "text": "审批"
+      },
+      {
+        "pagePath": "pages/tasks/tasks",
+        "text": "任务"
+      },
+      {
+        "pagePath": "pages/projects/projects",
+        "text": "项目"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的"
+      }
+    ]
+  },
+  "usingComponents": {
+    "status-pill": "/components/status-pill/status-pill"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}
