@@ -21,6 +21,12 @@ Page({
     });
   },
 
+  onShow() {
+    if (this.getTabBar) {
+      this.getTabBar().setData({ selected: 4 });
+    }
+  },
+
   goAdmin() {
     if (!this.data.canConfig) {
       wx.showToast({

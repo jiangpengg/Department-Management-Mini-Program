@@ -1,4 +1,4 @@
-const { applicationTypes, roomSlots } = require("../../utils/mock");
+const { applicationTypes, roomSlots, meetingRooms, instruments, buildSealApprovalFlow, buildTaskBoard } = require("../../utils/mock");
 const { ensureAuthorized, getCurrentUser, hasCapability } = require("../../utils/auth");
 
 const defaultForm = {
@@ -9,11 +9,17 @@ const defaultForm = {
   meetingEndTime: "",
   duration: "2",
   needTencent: true,
+  sealPhotoPath: "",
   remark: ""
 };
 
 const weekNames = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+const roomTimelineLabels = ["8", "10", "12", "14", "16", "18", "20", "22"];
+const roomTimelineStart = 8;
+const roomTimelineEnd = 23;
+const roomTimelineTotal = roomTimelineEnd - roomTimelineStart;
+const defaultMeetingRooms = meetingRooms;
 
 function pad(value) {
   return String(value).padStart(2, "0");
@@ -57,10 +63,28 @@ Page({
     roomSlots,
     roomNames: ["201 综合会议室", "203 视频会议室", "305 洽谈室"],
     roomIndex: 0,
+    roomTimelineLabels,
+    roomTimelineRooms: [],
+    meetingRooms: [],
+    roomLoading: false,
+    roomSelectedDateText: "今天",
+    selectedRoomIndex: -1,
+    roomSelectedName: "",
     sealTypes: ["公章", "合同章", "财务章", "法人章"],
     sealIndex: 0,
+    instruments,
+    instrumentNames: instruments.map((item) => `${item.name}（可用${item.available}${item.unit}）`),
+    instrumentIndex: 0,
+    instrumentQuantity: "1",
+    instrumentPurpose: "",
+    instrumentFlow: [],
+    startedOnsiteTasks: [],
+    startedTaskNames: [],
+    startedTaskIndex: 0,
+    selectedTaskEquipment: [],
     meetingResult: null,
     meetingRecords: [],
+    roomBookingRecords: [],
     submitting: false
   },
 
@@ -81,11 +105,20 @@ Page({
       this.setActiveType(options.type);
     }
     this.loadMeetingRecords();
+    this.loadMeetingRooms();
+    this.loadInstrumentFlow();
   },
 
   onShow() {
     if (this.data.activeType === "meeting") {
       this.loadMeetingRecords();
+    }
+    if (this.data.activeType === "room") {
+      this.loadMeetingRooms();
+    }
+    if (this.data.activeType === "instrument" || this.data.activeType === "return") {
+      this.loadStartedOnsiteTasks();
+      this.loadInstrumentFlow();
     }
   },
 
@@ -107,6 +140,7 @@ Page({
       this.buildCalendar();
       this.updateTimeSlots();
       this.updateMeetingTimeText();
+      this.updateRoomDateText(todayDate);
     });
   },
 
@@ -119,6 +153,14 @@ Page({
     this.setData({
       activeType: currentType.key,
       currentType
+    }, () => {
+      if (currentType.key === "room") {
+        this.updateRoomDateText(this.data.form.meetingDate || this.data.todayDate);
+        this.loadMeetingRooms();
+      }
+      if (currentType.key === "instrument" || currentType.key === "return") {
+        this.loadStartedOnsiteTasks();
+      }
     });
   },
 
@@ -135,9 +177,277 @@ Page({
     });
   },
 
+  openRoomDatePanel() {
+    this.openDatePanel();
+  },
+
+  openRoomTimePanel(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    const room = this.data.roomTimelineRooms[index];
+    if (!room) return;
+    const startHour = this.parseHour(this.data.form.meetingStartTime, 9);
+    const endHour = this.parseHour(this.data.form.meetingEndTime, Math.min(startHour + 2, 20));
+    this.setData({
+      selectedRoomIndex: index,
+      roomIndex: Math.max(0, this.data.roomNames.indexOf(room.name)),
+      roomSelectedName: room.name,
+      pickerPanelVisible: true,
+      pickerPanelType: "time",
+      pickerPanelTitle: `${room.name} 选择时间`,
+      pendingMeetingDate: this.data.form.meetingDate || this.data.todayDate,
+      pendingMeetingDateText: this.formatDateText(this.data.form.meetingDate || this.data.todayDate),
+      pendingStartHour: startHour,
+      pendingEndHour: Math.max(startHour + 1, endHour),
+      pendingChoosingEnd: false
+    }, () => {
+      this.updateTimeSlots();
+    });
+  },
+
   onSealChange(event) {
     this.setData({
       sealIndex: Number(event.detail.value)
+    });
+  },
+
+  chooseSealPhoto() {
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ["image"],
+      sourceType: ["camera", "album"],
+      success: (res) => {
+        const file = res.tempFiles && res.tempFiles[0];
+        if (!file) return;
+        this.setData({
+          "form.sealPhotoPath": file.tempFilePath
+        });
+      }
+    });
+  },
+
+  previewSealPhoto() {
+    if (!this.data.form.sealPhotoPath) return;
+    wx.previewImage({
+      urls: [this.data.form.sealPhotoPath],
+      current: this.data.form.sealPhotoPath
+    });
+  },
+
+  removeSealPhoto() {
+    this.setData({
+      "form.sealPhotoPath": ""
+    });
+  },
+
+  onInstrumentChange(event) {
+    this.setData({
+      instrumentIndex: Number(event.detail.value)
+    });
+  },
+
+  onInstrumentQuantityInput(event) {
+    this.setData({
+      instrumentQuantity: event.detail.value
+    });
+  },
+
+  onInstrumentPurposeInput(event) {
+    this.setData({
+      instrumentPurpose: event.detail.value
+    });
+  },
+
+  async loadStartedOnsiteTasks() {
+    const user = getCurrentUser();
+    const board = buildTaskBoard(user);
+    const mockOnsite = board.onsite || [];
+    const cloudOnsite = await this.loadCloudOnsiteWorks();
+    const localOnsite = cloudOnsite.length ? [] : (wx.getStorageSync("onsiteWorks") || []);
+    const flow = await this.loadInstrumentFlowRecords();
+    const borrowedTaskIds = flow
+      .filter((record) => record.type === "出库申请" && record.status === "已出库")
+      .map((record) => record.taskId);
+    const taskMap = {};
+    mockOnsite.concat(localOnsite).forEach((item) => {
+      taskMap[item.id] = item;
+    });
+    const started = Object.keys(taskMap)
+      .map((id) => taskMap[id])
+      .filter((item) => {
+        const hasEquipment = item.status === "processing" && item.equipmentDetails && item.equipmentDetails.length;
+        if (this.data.activeType === "return") {
+          return hasEquipment && borrowedTaskIds.indexOf(item.id) >= 0;
+        }
+        return hasEquipment;
+      });
+    const selected = started[0] || null;
+    const selectedEquipment = this.buildSelectedTaskEquipment(selected, flow);
+    this.setData({
+      startedOnsiteTasks: started,
+      startedTaskNames: started.map((item) => `${item.title}（负责人：${item.owner}）`),
+      startedTaskIndex: 0,
+      selectedTaskEquipment: selectedEquipment
+    });
+  },
+
+  onStartedTaskChange(event) {
+    const index = Number(event.detail.value);
+    const task = this.data.startedOnsiteTasks[index];
+    const flow = this.data.instrumentFlow || [];
+    this.setData({
+      startedTaskIndex: index,
+      selectedTaskEquipment: this.buildSelectedTaskEquipment(task, flow)
+    });
+  },
+
+  async loadCloudOnsiteWorks() {
+    if (!wx.cloud) return [];
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "listOnsiteWorks"
+      });
+      const result = res.result || {};
+      return result.ok ? (result.records || []) : [];
+    } catch (error) {
+      return [];
+    }
+  },
+
+  buildSelectedTaskEquipment(task, flow) {
+    if (!task) return [];
+    if (this.data.activeType === "return") {
+      const borrowed = (flow || []).find((record) => record.taskId === task.id && record.type === "出库申请" && record.status === "已出库");
+      if (borrowed && borrowed.equipmentDetails && borrowed.equipmentDetails.length) {
+        return borrowed.equipmentDetails.map((item) => ({ ...item, checked: false }));
+      }
+    }
+    return (task.equipmentDetails || []).map((item) => ({ ...item, checked: false }));
+  },
+
+  async loadInstrumentFlow() {
+    const flow = await this.loadInstrumentFlowRecords();
+    this.setInstrumentFlowData(flow);
+  },
+
+  async loadInstrumentFlowRecords() {
+    if (!wx.cloud) return wx.getStorageSync("instrumentFlow") || [];
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "listInstrumentFlows"
+      });
+      const result = res.result || {};
+      return result.ok ? (result.records || []) : (wx.getStorageSync("instrumentFlow") || []);
+    } catch (error) {
+      return wx.getStorageSync("instrumentFlow") || [];
+    }
+  },
+
+  setInstrumentFlowData(flow) {
+    const canConfirm = this.canConfirmInventory();
+    this.setData({
+      instrumentFlow: flow.map((record) => ({
+        ...record,
+        canConfirm: canConfirm && record.status === "待仓库管理员确认"
+      }))
+    });
+  },
+
+  canConfirmInventory() {
+    return hasCapability("global_admin") || hasCapability("system_config");
+  },
+
+  saveInstrumentFlow(flow) {
+    wx.setStorageSync("instrumentFlow", flow);
+    this.setInstrumentFlowData(flow);
+  },
+
+  async confirmInventoryRecord(event) {
+    const id = event.currentTarget.dataset.id;
+    const flow = this.data.instrumentFlow || [];
+    const current = flow.find((record) => record.id === id || record._id === id);
+    const nextFlow = flow.map((record) => {
+      if (record.id !== id && record._id !== id) return record;
+      return {
+        ...record,
+        status: record.type === "归还申请" ? "已入库" : "已出库",
+        confirmedBy: getCurrentUser().name
+      };
+    });
+    const record = nextFlow.find((item) => item.id === id || item._id === id);
+    if (current && current._id) {
+      const ok = await this.updateCloudInstrumentFlow(current._id, {
+        status: record.status,
+        confirmedBy: getCurrentUser().name
+      });
+      if (!ok) {
+        wx.showToast({ title: "云端确认失败", icon: "none" });
+        return;
+      }
+    }
+    if (record && record.type === "归还申请") {
+      await this.closeOnsiteTask(record.taskId);
+    }
+    if (current && current._id) {
+      this.setInstrumentFlowData(nextFlow);
+    } else {
+      this.saveInstrumentFlow(nextFlow);
+    }
+    this.loadStartedOnsiteTasks();
+    wx.showToast({
+      title: record && record.type === "归还申请" ? "已确认入库" : "已确认出库",
+      icon: "success"
+    });
+  },
+
+  async closeOnsiteTask(taskId) {
+    const cloudOnsite = await this.loadCloudOnsiteWorks();
+    const cloudTask = cloudOnsite.find((item) => item.id === taskId);
+    if (cloudTask && cloudTask._id) {
+      await wx.cloud.callFunction({
+        name: "updateOnsiteWork",
+        data: {
+          recordId: cloudTask._id,
+          data: {
+            status: "done",
+            progress: 100
+          }
+        }
+      }).catch(() => {});
+      return;
+    }
+    const localOnsite = wx.getStorageSync("onsiteWorks") || [];
+    wx.setStorageSync("onsiteWorks", localOnsite.map((item) => (
+      item.id === taskId ? { ...item, status: "done", progress: 100 } : item
+    )));
+    const closedTaskIds = wx.getStorageSync("closedOnsiteTaskIds") || [];
+    if (closedTaskIds.indexOf(taskId) < 0) {
+      wx.setStorageSync("closedOnsiteTaskIds", [taskId, ...closedTaskIds]);
+    }
+  },
+
+  async updateCloudInstrumentFlow(recordId, data) {
+    if (!wx.cloud || !recordId) return false;
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "updateInstrumentFlow",
+        data: {
+          recordId,
+          data
+        }
+      });
+      const result = res.result || {};
+      return Boolean(result.ok);
+    } catch (error) {
+      return false;
+    }
+  },
+
+  toggleEquipmentCheck(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    this.setData({
+      selectedTaskEquipment: this.data.selectedTaskEquipment.map((item, itemIndex) => (
+        itemIndex === index ? { ...item, checked: !item.checked } : item
+      ))
     });
   },
 
@@ -298,23 +608,34 @@ Page({
 
   noop() {},
 
-  confirmPickerPanel() {
+  async confirmPickerPanel() {
     if (this.data.pickerPanelType === "date") {
       this.setData({
         "form.meetingDate": this.data.pendingMeetingDate,
         pendingMeetingDateText: this.formatDateText(this.data.pendingMeetingDate)
       }, () => {
         this.updateMeetingTimeText();
+        this.updateRoomDateText(this.data.pendingMeetingDate);
+        this.loadRoomBookings();
       });
     }
 
     if (this.data.pickerPanelType === "time") {
       const duration = this.data.pendingEndHour - this.data.pendingStartHour;
-      this.setData({
+      const startTime = formatHour(this.data.pendingStartHour);
+      const endTime = formatHour(this.data.pendingEndHour);
+      const nextData = {
         "form.meetingStartTime": formatHour(this.data.pendingStartHour),
         "form.meetingEndTime": formatHour(this.data.pendingEndHour),
         "form.duration": String(duration)
-      }, () => {
+      };
+      if (this.data.activeType === "room") {
+        nextData["form.time"] = `${this.data.form.meetingDate || this.data.pendingMeetingDate} ${startTime}-${endTime}`;
+        nextData["form.title"] = this.data.form.title || `${this.data.roomSelectedName}预约`;
+        const reserved = await this.reserveSelectedRoom(this.data.pendingStartHour, this.data.pendingEndHour);
+        if (!reserved) return;
+      }
+      this.setData(nextData, () => {
         this.updateMeetingTimeText();
       });
     }
@@ -382,6 +703,110 @@ Page({
     });
   },
 
+  buildRoomTimeline() {
+    const selectedDate = this.data.form.meetingDate || this.data.todayDate;
+    const bookingRecords = this.data.roomBookingRecords || [];
+    const rooms = (this.data.meetingRooms || []).map((room) => {
+      const sharedBookings = bookingRecords
+        .filter((booking) => booking.roomId === room.id && booking.date === selectedDate)
+        .map((booking) => ({
+          start: booking.startHour,
+          end: booking.endHour,
+          title: booking.title,
+          applicant: booking.applicant
+        }));
+      return {
+      ...room,
+      segments: Array.from({ length: roomTimelineTotal }, (_, index) => ({ id: `${room.id}-${index}` })),
+        bookings: room.bookings.concat(sharedBookings).map((booking) => ({
+        ...booking,
+        left: this.getTimelineLeft(booking.start),
+        width: this.getTimelineWidth(booking.start, booking.end)
+      }))
+      };
+    });
+    this.setData({
+      roomTimelineRooms: rooms
+    });
+  },
+
+  async reserveSelectedRoom(start, end) {
+    const index = this.data.selectedRoomIndex;
+    const room = this.data.roomTimelineRooms[index];
+    if (index < 0 || !room) return false;
+    if (!wx.cloud) {
+      wx.showToast({
+        title: "云开发未初始化",
+        icon: "none"
+      });
+      return false;
+    }
+
+    this.setData({ submitting: true });
+    try {
+      const user = getCurrentUser();
+      const res = await wx.cloud.callFunction({
+        name: "createRoomBooking",
+        data: {
+          roomId: room.id,
+          roomName: room.name,
+          date: this.data.form.meetingDate || this.data.pendingMeetingDate,
+          startHour: start,
+          endHour: end,
+          startTime: formatHour(start),
+          endTime: formatHour(end),
+          title: this.data.form.title || `${room.name}预约`,
+          applicant: user.name,
+          applicantId: user.id,
+          applicantOpenid: user.openid
+        }
+      });
+      const result = res.result || {};
+      if (!result.ok) {
+        wx.showToast({
+          title: result.message || "该时间已被占用",
+          icon: "none"
+        });
+        this.setData({ submitting: false });
+        await this.loadRoomBookings();
+        return false;
+      }
+
+      wx.showToast({
+        title: "会议室已占用",
+        icon: "success"
+      });
+      this.setData({
+        submitting: false,
+        selectedRoomIndex: -1
+      });
+      await this.loadRoomBookings();
+      return true;
+    } catch (error) {
+      this.setData({ submitting: false });
+      wx.showToast({
+        title: error.errMsg || "占用失败",
+        icon: "none"
+      });
+      return false;
+    }
+  },
+
+  updateRoomDateText(value) {
+    const text = value === this.data.todayDate ? "今天" : this.formatDateText(value);
+    this.setData({
+      roomSelectedDateText: text
+    });
+  },
+
+  getTimelineLeft(hour) {
+    return Math.max(0, Math.min(100, ((hour - roomTimelineStart) / roomTimelineTotal) * 100));
+  },
+
+  getTimelineWidth(start, end) {
+    return Math.max(0, Math.min(100, ((end - start) / roomTimelineTotal) * 100));
+  },
+
   parseDate(value) {
     const parts = (value || this.data.todayDate).split("-").map(Number);
     return new Date(parts[0], parts[1] - 1, parts[2]);
@@ -398,12 +823,71 @@ Page({
   },
 
   async submitApply() {
+    if (this.data.activeType === "instrument" || this.data.activeType === "return") {
+      const task = this.data.startedOnsiteTasks[this.data.startedTaskIndex];
+      const checkedEquipment = this.data.selectedTaskEquipment.filter((item) => item.checked);
+      if (!task) {
+        wx.showToast({ title: "请选择已启动任务", icon: "none" });
+        return;
+      }
+      if (!checkedEquipment.length) {
+        wx.showToast({ title: "请确认设备明细", icon: "none" });
+        return;
+      }
+      const record = {
+        id: `${this.data.activeType === "instrument" ? "OUT" : "IN"}-${Date.now()}`,
+        type: this.data.activeType === "instrument" ? "出库申请" : "归还申请",
+        taskId: task.id,
+        taskTitle: task.title,
+        instrumentName: checkedEquipment.map((item) => `${item.name}×${item.quantity}`).join("、"),
+        equipmentDetails: checkedEquipment,
+        quantity: checkedEquipment.reduce((total, item) => total + Number(item.quantity || 1), 0),
+        purpose: task.title,
+        borrower: getCurrentUser().name,
+        time: this.data.todayDate,
+        status: "待仓库管理员确认"
+      };
+      const cloudId = await this.createCloudInstrumentFlow(record);
+      const savedRecord = cloudId ? { ...record, _id: cloudId } : record;
+      const nextFlow = [savedRecord, ...(this.data.instrumentFlow || [])];
+      if (cloudId) {
+        this.setInstrumentFlowData(nextFlow);
+      } else {
+        this.saveInstrumentFlow(nextFlow);
+      }
+      this.setData({
+        selectedTaskEquipment: this.data.selectedTaskEquipment.map((item) => ({ ...item, checked: false })),
+        form: { ...defaultForm }
+      });
+      wx.showToast({ title: this.data.activeType === "instrument" ? "已提交出库申请" : "已提交归还申请", icon: "success" });
+      return;
+    }
+
     if (!this.data.form.title) {
       wx.showToast({
         title: "请填写主题",
         icon: "none"
       });
       return;
+    }
+
+    if (this.data.activeType === "seal") {
+      if (!this.data.form.sealPhotoPath) {
+        wx.showToast({
+          title: "请上传盖章文件照片",
+          icon: "none"
+        });
+        return;
+      }
+      const user = getCurrentUser();
+      const flow = buildSealApprovalFlow(user);
+      await this.saveSealApplication(user, flow);
+      wx.showModal({
+        title: "用印申请流程",
+        content: flow.map((step, index) => `${index + 1}. ${step.name}`).join("\n"),
+        showCancel: false,
+        confirmText: "知道了"
+      });
     }
 
     if (this.data.activeType === "meeting" && this.data.form.needTencent) {
@@ -426,6 +910,92 @@ Page({
     this.setData({
       form: { ...defaultForm }
     });
+  },
+
+  async saveSealApplication(user, flow) {
+    let record = {
+      id: `SEAL-${Date.now()}`,
+      type: "印章",
+      title: this.data.form.title,
+      time: this.data.todayDate,
+      detail: "盖章文件照片已上传留底。",
+      sealPhotoPath: this.data.form.sealPhotoPath,
+      approvalFlow: flow
+    };
+    if (!wx.cloud) {
+      this.saveLocalSealApplication(user, flow, record);
+      return;
+    }
+    try {
+      const cloudPhotoPath = await this.uploadSealPhoto(record.sealPhotoPath);
+      record = {
+        ...record,
+        sealPhotoPath: cloudPhotoPath
+      };
+      const res = await wx.cloud.callFunction({
+        name: "createSealApplication",
+        data: {
+          user,
+          application: record
+        }
+      });
+      const result = res.result || {};
+      if (!result.ok) {
+        this.saveLocalSealApplication(user, flow, record);
+        wx.showToast({
+          title: result.message || "云端保存失败，已本地暂存",
+          icon: "none"
+        });
+      }
+    } catch (error) {
+      this.saveLocalSealApplication(user, flow, record);
+      wx.showToast({
+        title: "云端不可用，已本地暂存",
+        icon: "none"
+      });
+    }
+  },
+
+  async uploadSealPhoto(filePath) {
+    if (!filePath || String(filePath).indexOf("cloud://") === 0) return filePath;
+    const suffixMatch = String(filePath).match(/\.(jpg|jpeg|png|webp)$/i);
+    const suffix = suffixMatch ? suffixMatch[0].toLowerCase() : ".jpg";
+    const res = await wx.cloud.uploadFile({
+      cloudPath: `seal-photos/${Date.now()}-${Math.random().toString(36).slice(2)}${suffix}`,
+      filePath
+    });
+    return res.fileID;
+  },
+
+  saveLocalSealApplication(user, flow, baseRecord) {
+    const records = wx.getStorageSync("sealApplications") || [];
+    wx.setStorageSync("sealApplications", [{
+      ...baseRecord,
+      applicant: user.name,
+      applicantRoleKey: user.roleKey,
+      department: user.department,
+      status: "pending",
+      approvalRequired: true,
+      approvalFlow: flow,
+      currentStepIndex: 0
+    }, ...records]);
+  },
+
+  async createCloudInstrumentFlow(record) {
+    if (!wx.cloud) return "";
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "createInstrumentFlow",
+        data: {
+          user: getCurrentUser(),
+          record
+        }
+      });
+      const result = res.result || {};
+      return result.ok ? result.recordId : "";
+    } catch (error) {
+      return "";
+    }
   },
 
   createTencentMeeting() {
@@ -527,6 +1097,74 @@ Page({
         });
       }
     }).catch(() => {});
+  },
+
+  loadMeetingRooms() {
+    this.setData({
+      roomLoading: true,
+      roomTimelineRooms: []
+    });
+    if (!wx.cloud) {
+      this.setData({
+        meetingRooms: defaultMeetingRooms,
+        roomLoading: false
+      }, () => {
+        this.buildRoomTimeline();
+      });
+      return Promise.resolve();
+    }
+    return wx.cloud.callFunction({
+      name: "listMeetingRooms"
+    }).then((res) => {
+      const result = res.result || {};
+      const rooms = result.ok && result.rooms && result.rooms.length
+        ? result.rooms.map((room) => ({
+          id: room.roomId || room._id,
+          name: room.name,
+          capacity: room.capacity,
+          features: room.features || "",
+          bookings: []
+        }))
+        : defaultMeetingRooms;
+      this.setData({
+        meetingRooms: rooms,
+        roomLoading: false
+      });
+      return this.loadRoomBookings();
+    }).catch(() => {
+      this.setData({
+        meetingRooms: defaultMeetingRooms,
+        roomLoading: false
+      }, () => {
+        this.buildRoomTimeline();
+      });
+    });
+  },
+
+  loadRoomBookings() {
+    if (!wx.cloud) {
+      this.buildRoomTimeline();
+      return Promise.resolve();
+    }
+    return wx.cloud.callFunction({
+      name: "listRoomBookings",
+      data: {
+        date: this.data.form.meetingDate || this.data.todayDate
+      }
+    }).then((res) => {
+      const result = res.result || {};
+      this.setData({
+        roomBookingRecords: result.ok ? (result.records || []) : []
+      }, () => {
+        this.buildRoomTimeline();
+      });
+    }).catch(() => {
+      this.setData({
+        roomBookingRecords: []
+      }, () => {
+        this.buildRoomTimeline();
+      });
+    });
   },
 
   copyMeetingInfo() {

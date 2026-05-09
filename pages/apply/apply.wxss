@@ -75,7 +75,8 @@
 
 input,
 textarea,
-.picker-value {
+.picker-value,
+.readonly-value {
   width: 100%;
   border: 1rpx solid #d7e1de;
   border-radius: 10rpx;
@@ -84,10 +85,125 @@ textarea,
 }
 
 input,
-.picker-value {
+.picker-value,
+.readonly-value {
   height: 82rpx;
   padding: 0 22rpx;
   line-height: 82rpx;
+}
+
+.readonly-value {
+  color: #66726e;
+  background: #f4f7f6;
+}
+
+.photo-uploader {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 12rpx;
+  min-height: 210rpx;
+  border: 2rpx dashed #b9c9c4;
+  border-radius: 10rpx;
+  color: #66726e;
+  background: #fbfcfc;
+}
+
+.photo-plus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58rpx;
+  height: 58rpx;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #1f5f54;
+  font-size: 42rpx;
+  line-height: 1;
+}
+
+.photo-text {
+  font-size: 25rpx;
+  font-weight: 700;
+}
+
+.photo-preview {
+  position: relative;
+  width: 220rpx;
+}
+
+.photo-preview image {
+  width: 220rpx;
+  height: 220rpx;
+  border-radius: 10rpx;
+  background: #edf2f0;
+}
+
+.photo-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 52rpx;
+  margin-top: 12rpx;
+  border: 1rpx solid #e1b7b7;
+  border-radius: 8rpx;
+  color: #a83232;
+  background: #fff7f7;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.equipment-check-list {
+  display: grid;
+  gap: 14rpx;
+}
+
+.equipment-check {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+  padding: 18rpx;
+  border: 1rpx solid #d7e1de;
+  border-radius: 8rpx;
+  background: #fbfcfc;
+}
+
+.equipment-check.checked {
+  border-color: #1f5f54;
+  background: #edf7f4;
+}
+
+.equipment-name {
+  color: #17211e;
+  font-size: 27rpx;
+  font-weight: 900;
+}
+
+.equipment-purpose {
+  margin-top: 6rpx;
+  color: #66726e;
+  font-size: 23rpx;
+}
+
+.equipment-mark {
+  flex: 0 0 auto;
+  color: #1f5f54;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.record-confirm-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 62rpx;
+  margin-top: 16rpx;
+  border-radius: 999rpx;
+  color: #ffffff;
+  background: #1f5f54;
+  font-size: 25rpx;
+  font-weight: 800;
 }
 
 .picker-action {
@@ -492,4 +608,129 @@ textarea {
 .slot-status.busy {
   color: #a02727;
   background: #ffe2e0;
+}
+
+.room-scheduler {
+  min-height: calc(100vh - 150rpx);
+  margin: -28rpx -28rpx -28rpx;
+  padding: 0 28rpx 80rpx;
+  color: #17211e;
+  background: #ffffff;
+}
+
+.room-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 104rpx;
+  border-bottom: 1rpx solid #eef2f0;
+}
+
+.room-head-title {
+  color: #17211e;
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.room-date-picker {
+  color: #1f5f54;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.room-list {
+  display: grid;
+}
+
+.room-loading {
+  padding: 70rpx 20rpx;
+  color: #7b8581;
+  text-align: center;
+  font-size: 27rpx;
+}
+
+.room-item {
+  padding: 34rpx 0 30rpx;
+  border-bottom: 1rpx solid #edf2f0;
+}
+
+.room-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin-bottom: 22rpx;
+}
+
+.room-title-wrap {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.room-name {
+  color: #17211e;
+  font-size: 34rpx;
+  font-weight: 900;
+}
+
+.room-capacity {
+  margin-left: 12rpx;
+  padding: 2rpx 8rpx;
+  border: 1rpx solid #c7d2ce;
+  border-radius: 6rpx;
+  color: #66726e;
+  font-size: 22rpx;
+  line-height: 1.2;
+}
+
+.room-features {
+  flex: 1;
+  min-width: 0;
+  color: #7b8581;
+  text-align: right;
+  font-size: 24rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.room-timebar {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  height: 44rpx;
+  border: 1rpx solid #cbd6d2;
+  border-radius: 5rpx;
+  background: #eef2f0;
+  overflow: hidden;
+}
+
+.room-bar-segment {
+  border-right: 1rpx solid #c9d3cf;
+}
+
+.room-bar-segment:last-child {
+  border-right: 0;
+}
+
+.room-busy-block {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.room-busy-block {
+  border-left: 2rpx solid #1f5f54;
+  border-right: 2rpx solid #1f5f54;
+  background: rgba(31, 95, 84, 0.44);
+}
+
+.room-hour-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10rpx 34rpx 0 34rpx;
+  color: #8b9692;
+  font-size: 25rpx;
+  font-weight: 700;
 }

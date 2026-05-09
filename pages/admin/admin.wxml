@@ -20,13 +20,77 @@
       <text>微信 openid + 人员表</text>
     </view>
     <view class="access-row">
-      <text>默认策略</text>
-      <text>未配置人员禁止进入</text>
-    </view>
-    <view class="access-row">
       <text>管理范围</text>
       <text>{{scope === 'global' ? '全所' : '本科室'}}</text>
     </view>
+  </view>
+
+  <view class="section-title">
+    <text>现场安全风险等级人员配置</text>
+  </view>
+  <view class="config-card card">
+    <view class="segmented-options">
+      <view
+        wx:for="{{riskPickerOptions}}"
+        wx:key="level"
+        class="segment-option {{activeRiskIndex === index ? 'active' : ''}}"
+        data-index="{{index}}"
+        bindtap="selectRiskLevelConfig"
+      >
+        {{item.name}}
+      </view>
+    </view>
+    <view class="config-subtitle">配置该风险等级可安排到岗到位的人员</view>
+    <view class="member-tags" wx:if="{{riskDraftMembers.length}}">
+      <view class="member-tag" wx:for="{{riskDraftMembers}}" wx:key="*this">
+        <text>{{item}}</text>
+        <text class="tag-remove" data-name="{{item}}" catchtap="removeRiskMember">×</text>
+      </view>
+    </view>
+    <view class="config-empty" wx:else>暂未配置人员</view>
+    <input class="config-search" value="{{riskSearchText}}" bindinput="onRiskSearch" placeholder="输入姓名搜索后添加" />
+    <view class="suggestion-list" wx:if="{{riskSuggestions.length}}">
+      <view class="suggestion-item" wx:for="{{riskSuggestions}}" wx:key="*this" data-name="{{item}}" bindtap="addRiskMember">
+        {{item}}
+      </view>
+    </view>
+    <button class="confirm-config-button" bindtap="confirmRiskConfig">确认风险等级人员配置</button>
+  </view>
+
+  <view class="section-title">
+    <text>综合人员配置</text>
+  </view>
+  <view class="new-role-card card">
+    <input value="{{newRoleName}}" bindinput="onNewRoleInput" placeholder="新增角色名称，如 资料管理员" />
+    <button bindtap="addCompositeRole">添加角色</button>
+  </view>
+  <view class="config-card card">
+    <view class="segmented-options role-options">
+      <view
+        wx:for="{{compositeRoles}}"
+        wx:key="key"
+        class="segment-option {{activeRoleIndex === index ? 'active' : ''}}"
+        data-index="{{index}}"
+        bindtap="selectRoleConfig"
+      >
+        {{item.name}}
+      </view>
+    </view>
+    <view class="config-subtitle">配置该综合事务角色对应的人员</view>
+    <view class="member-tags" wx:if="{{roleDraftMembers.length}}">
+      <view class="member-tag" wx:for="{{roleDraftMembers}}" wx:key="*this">
+        <text>{{item}}</text>
+        <text class="tag-remove" data-name="{{item}}" catchtap="removeRoleMember">×</text>
+      </view>
+    </view>
+    <view class="config-empty" wx:else>暂未配置人员</view>
+    <input class="config-search" value="{{roleSearchText}}" bindinput="onRoleSearch" placeholder="输入姓名搜索后添加" />
+    <view class="suggestion-list" wx:if="{{roleSuggestions.length}}">
+      <view class="suggestion-item" wx:for="{{roleSuggestions}}" wx:key="*this" data-name="{{item}}" bindtap="addRoleMember">
+        {{item}}
+      </view>
+    </view>
+    <button class="confirm-config-button" bindtap="confirmRoleConfig">确认综合人员配置</button>
   </view>
 
   <view class="section-title">
@@ -47,18 +111,42 @@
     </view>
   </view>
 
+  <view class="section-title" wx:if="{{canGlobalManage}}">
+    <text>会议室管理</text>
+  </view>
+  <view class="room-manage card" wx:if="{{canGlobalManage}}">
+    <view class="room-form-grid">
+      <input value="{{roomForm.name}}" data-field="name" bindinput="onRoomInput" placeholder="会议室名称，如 413会议室" />
+      <input type="number" value="{{roomForm.capacity}}" data-field="capacity" bindinput="onRoomInput" placeholder="容纳人数" />
+    </view>
+    <input value="{{roomForm.features}}" data-field="features" bindinput="onRoomInput" placeholder="设备，如 投影、白板、视频" />
+    <button class="room-add-button" bindtap="createMeetingRoom">{{roomSubmitting ? '添加中...' : '添加会议室'}}</button>
+  </view>
+  <view class="list" wx:if="{{canGlobalManage}}">
+    <view class="room-card card" wx:for="{{meetingRooms}}" wx:key="_id">
+      <view>
+        <view class="room-name">{{item.name}}</view>
+        <view class="room-meta">{{item.capacity}}人 · {{item.features || '无设备备注'}}</view>
+      </view>
+      <view class="auth-tag on">可预约</view>
+    </view>
+    <view class="empty" wx:if="{{meetingRooms.length === 0}}">暂无会议室，请先添加</view>
+  </view>
+
   <view class="section-title">
     <text>人员管理</text>
     <button class="text-button" bindtap="goPeopleManage">管理</button>
   </view>
   <view class="list">
     <view class="user-card card" wx:for="{{users}}" wx:key="id">
-      <view class="user-main">
-        <view class="user-name">{{item.name}}</view>
-        <view class="user-meta">{{item.department}} · {{item.role}}</view>
-        <view class="reviewer-for" wx:if="{{item.reviewerFor.length}}">负责审核：{{item.reviewerForText}}</view>
+      <view class="user-top">
+        <view class="user-main">
+          <view class="user-name">{{item.name}}</view>
+          <view class="user-meta">{{item.department}} · {{item.role}}</view>
+          <view class="reviewer-for" wx:if="{{item.reviewerFor.length}}">负责审核：{{item.reviewerForText}}</view>
+        </view>
+        <view class="auth-tag {{item.authorized ? 'on' : 'off'}}">{{item.authorized ? '已授权' : '禁用'}}</view>
       </view>
-      <view class="auth-tag {{item.authorized ? 'on' : 'off'}}">{{item.authorized ? '已授权' : '禁用'}}</view>
     </view>
   </view>
 

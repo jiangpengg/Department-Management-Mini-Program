@@ -28,7 +28,7 @@ button::after {
 
 .page {
   min-height: 100vh;
-  padding: 28rpx;
+  padding: 28rpx 28rpx 166rpx;
 }
 
 .section-title {

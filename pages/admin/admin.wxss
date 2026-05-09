@@ -60,13 +60,25 @@
 }
 
 .dept-card,
-.user-card,
 .role-card {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 20rpx;
   padding: 24rpx;
+}
+
+.user-card {
+  display: grid;
+  gap: 20rpx;
+  padding: 24rpx;
+}
+
+.user-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
 }
 
 .dept-name,
@@ -171,8 +183,245 @@
   background: #ffe2e0;
 }
 
+.config-card {
+  display: grid;
+  gap: 16rpx;
+  padding: 24rpx;
+}
+
+.segmented-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  width: 100%;
+  min-width: 0;
+}
+
+.segment-option {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 118rpx;
+  height: 58rpx;
+  padding: 0 14rpx;
+  border: 1rpx solid #d7e1de;
+  border-radius: 8rpx;
+  color: #40504b;
+  background: #ffffff;
+  font-size: 24rpx;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.segment-option.active {
+  color: #ffffff;
+  border-color: #1f5f54;
+  background: #1f5f54;
+}
+
+.role-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.role-options .segment-option {
+  min-width: 0;
+  width: 100%;
+  padding: 0 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.config-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.config-title {
+  color: #17211e;
+  font-size: 30rpx;
+  font-weight: 900;
+}
+
+.config-subtitle,
+.config-empty {
+  margin-top: 8rpx;
+  color: #7a8782;
+  font-size: 24rpx;
+  line-height: 1.4;
+}
+
+.config-count {
+  min-width: 82rpx;
+  height: 42rpx;
+  border-radius: 999rpx;
+  color: #1f5f54;
+  background: #edf7f4;
+  text-align: center;
+  font-size: 23rpx;
+  font-weight: 900;
+  line-height: 42rpx;
+}
+
+.member-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.member-tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 52rpx;
+  padding: 0 10rpx 0 16rpx;
+  border-radius: 999rpx;
+  color: #1f5f54;
+  background: #edf7f4;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.tag-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36rpx;
+  height: 36rpx;
+  margin-left: 8rpx;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #1f5f54;
+  font-size: 25rpx;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.config-search,
+.new-role-card input {
+  height: 76rpx;
+  padding: 0 20rpx;
+  border: 1rpx solid #d7e1de;
+  border-radius: 8rpx;
+  color: #17211e;
+  background: #fbfcfc;
+  font-size: 26rpx;
+}
+
+.suggestion-list {
+  border: 1rpx solid #d7e1de;
+  border-radius: 8rpx;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.suggestion-item {
+  min-height: 68rpx;
+  padding: 0 20rpx;
+  border-bottom: 1rpx solid #edf2f0;
+  color: #17211e;
+  font-size: 26rpx;
+  font-weight: 800;
+  line-height: 68rpx;
+}
+
+.suggestion-item:last-child {
+  border-bottom: 0;
+}
+
+.new-role-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150rpx;
+  gap: 14rpx;
+  padding: 20rpx;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.new-role-card button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 76rpx;
+  min-width: 0;
+  border-radius: 8rpx;
+  color: #ffffff;
+  background: #1f5f54;
+  font-size: 24rpx;
+  font-weight: 900;
+}
+
+.confirm-config-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 76rpx;
+  border-radius: 8rpx;
+  color: #ffffff;
+  background: #1f5f54;
+  font-size: 27rpx;
+  font-weight: 900;
+}
+
 .flow-card {
   padding: 24rpx;
+}
+
+.room-manage {
+  display: grid;
+  gap: 18rpx;
+  padding: 24rpx;
+}
+
+.room-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 16rpx;
+}
+
+.room-manage input {
+  height: 78rpx;
+  padding: 0 20rpx;
+  border: 1rpx solid #d7e1de;
+  border-radius: 8rpx;
+  background: #fbfcfc;
+  color: #17211e;
+  font-size: 26rpx;
+}
+
+.room-add-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 76rpx;
+  border-radius: 8rpx;
+  color: #ffffff;
+  background: #1f5f54;
+  font-size: 27rpx;
+  font-weight: 800;
+}
+
+.room-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 24rpx;
+}
+
+.room-name {
+  color: #17211e;
+  font-size: 30rpx;
+  font-weight: 900;
+}
+
+.room-meta {
+  margin-top: 8rpx;
+  color: #6b7773;
+  font-size: 24rpx;
 }
 
 .step-list {

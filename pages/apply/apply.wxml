@@ -1,25 +1,30 @@
 <view class="page">
-  <view class="type-tabs card">
+  <view class="type-tabs card" wx:if="{{activeType !== 'room'}}">
     <view wx:for="{{types}}" wx:key="key" class="type-tab {{activeType === item.key ? 'active' : ''}}" data-type="{{item.key}}" bindtap="switchType">
       <text>{{item.name}}</text>
     </view>
   </view>
 
-  <view class="form card">
+  <view class="form card" wx:if="{{activeType !== 'room'}}">
     <view class="form-title">{{currentType.name}}</view>
-    <view class="form-subtitle" wx:if="{{activeType !== 'meeting'}}">{{currentType.desc}}</view>
-    <view class="flow-note {{currentType.approvalRequired ? 'needs-approval' : 'no-approval'}}" wx:if="{{activeType !== 'meeting'}}">
+    <view class="form-subtitle" wx:if="{{activeType !== 'meeting' && activeType !== 'seal'}}">{{currentType.desc}}</view>
+    <view class="flow-note {{currentType.approvalRequired ? 'needs-approval' : 'no-approval'}}" wx:if="{{activeType !== 'meeting' && activeType !== 'seal'}}">
       {{currentType.approvalRequired ? '提交后进入审批流程' : '无需审批，提交后直接登记'}}
     </view>
 
-    <view class="field">
+    <view class="field" wx:if="{{activeType !== 'instrument' && activeType !== 'return'}}">
       <view class="label">申请主题</view>
       <input value="{{form.title}}" data-field="title" bindinput="onInput" placeholder="请输入申请主题" />
     </view>
 
-    <view class="field" wx:if="{{activeType !== 'meeting'}}">
+    <view class="field" wx:if="{{activeType !== 'meeting' && activeType !== 'seal' && activeType !== 'instrument' && activeType !== 'return'}}">
       <view class="label">使用时间</view>
       <input value="{{form.time}}" data-field="time" bindinput="onInput" placeholder="例如 2026-05-06 09:30" />
+    </view>
+
+    <view class="field" wx:if="{{activeType === 'seal'}}">
+      <view class="label">申请日期</view>
+      <view class="readonly-value">{{todayDate}}</view>
     </view>
 
     <view class="field" wx:if="{{activeType === 'meeting'}}">
@@ -40,13 +45,38 @@
     </view>
 
     <view class="field" wx:if="{{activeType === 'seal'}}">
-      <view class="label">印章类型</view>
-      <picker class="picker-control" mode="selector" range="{{sealTypes}}" value="{{sealIndex}}" bindchange="onSealChange">
-        <view class="picker-value">{{sealTypes[sealIndex]}}</view>
+      <view class="label">盖章文件照片</view>
+      <view class="photo-uploader" wx:if="{{!form.sealPhotoPath}}" bindtap="chooseSealPhoto">
+        <view class="photo-plus">+</view>
+        <view class="photo-text">拍照或上传文件照片</view>
+      </view>
+      <view class="photo-preview" wx:if="{{form.sealPhotoPath}}">
+        <image src="{{form.sealPhotoPath}}" mode="aspectFill" bindtap="previewSealPhoto"></image>
+        <button class="photo-remove" bindtap="removeSealPhoto">删除</button>
+      </view>
+    </view>
+
+    <view class="field" wx:if="{{activeType === 'instrument' || activeType === 'return'}}">
+      <view class="label">关联已启动现场任务</view>
+      <picker class="picker-control" mode="selector" range="{{startedTaskNames}}" value="{{startedTaskIndex}}" bindchange="onStartedTaskChange">
+        <view class="picker-value">{{startedTaskNames[startedTaskIndex] || '暂无已启动任务'}}</view>
       </picker>
     </view>
 
-    <view class="field" wx:if="{{activeType !== 'meeting'}}">
+    <view class="field" wx:if="{{activeType === 'instrument' || activeType === 'return'}}">
+      <view class="label">{{activeType === 'instrument' ? '逐项确认已借设备' : '逐项核对归还设备'}}</view>
+      <view class="equipment-check-list">
+        <view class="equipment-check {{item.checked ? 'checked' : ''}}" wx:for="{{selectedTaskEquipment}}" wx:key="instrumentId" data-index="{{index}}" bindtap="toggleEquipmentCheck">
+          <view>
+            <view class="equipment-name">{{item.name}} × {{item.quantity}}</view>
+            <view class="equipment-purpose">{{item.purpose}}</view>
+          </view>
+          <view class="equipment-mark">{{item.checked ? '已确认' : '待确认'}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="field" wx:if="{{activeType !== 'meeting' && activeType !== 'seal' && activeType !== 'instrument' && activeType !== 'return'}}">
       <view class="label">申请说明</view>
       <textarea value="{{form.remark}}" data-field="remark" bindinput="onInput" placeholder="补充用途、背景、材料清单或审批说明" />
     </view>
@@ -102,7 +132,7 @@
     </view>
 
     <button class="primary-button" bindtap="submitApply">
-      {{submitting ? '提交中...' : (activeType === 'meeting' && form.needTencent ? '创建腾讯会议' : (currentType.approvalRequired ? '提交审批' : '提交登记'))}}
+      {{submitting ? '提交中...' : (activeType === 'meeting' && form.needTencent ? '创建腾讯会议' : (activeType === 'instrument' ? '提交出库申请' : (activeType === 'return' ? '提交归还申请' : (currentType.approvalRequired ? '提交审批' : '提交登记'))))}}
     </button>
 
     <view class="meeting-result card" wx:if="{{meetingResult}}">
@@ -151,16 +181,104 @@
     <view class="empty" wx:if="{{meetingRecords.length === 0}}">暂无会议记录</view>
   </view>
 
-  <view class="section-title" wx:if="{{activeType === 'room'}}">
-    <text>会议室占用</text>
+  <view class="section-title" wx:if="{{activeType === 'instrument' || activeType === 'return'}}">
+    <text>出入库记录</text>
   </view>
-  <view class="list" wx:if="{{activeType === 'room'}}">
-    <view class="slot card" wx:for="{{roomSlots}}" wx:key="room">
-      <view>
-        <view class="slot-room">{{item.room}}</view>
-        <view class="slot-time">{{item.time}}</view>
+  <view class="list" wx:if="{{activeType === 'instrument' || activeType === 'return'}}">
+    <view class="meeting-record card" wx:for="{{instrumentFlow}}" wx:key="id">
+      <view class="meeting-record-title">{{item.instrumentName}} · {{item.type}}</view>
+      <view class="meeting-record-meta">数量：{{item.quantity}} · 借用人：{{item.borrower}}</view>
+      <view class="meeting-record-meta">用途：{{item.purpose}}</view>
+      <view class="meeting-record-meta">状态：{{item.status}}</view>
+      <view class="meeting-record-meta">时间：{{item.time}}</view>
+      <button class="record-confirm-button" wx:if="{{item.canConfirm}}" data-id="{{item.id}}" bindtap="confirmInventoryRecord">
+        {{item.type === '归还申请' ? '确认入库' : '确认出库'}}
+      </button>
+    </view>
+    <view class="empty" wx:if="{{instrumentFlow.length === 0}}">暂无出入库记录</view>
+  </view>
+
+  <view class="room-scheduler" wx:if="{{activeType === 'room'}}">
+    <view class="room-head">
+      <view class="room-head-title">会议室</view>
+      <view class="room-date-picker" bindtap="openRoomDatePanel">{{roomSelectedDateText}}⌄</view>
+    </view>
+
+    <view class="room-list">
+      <view class="room-loading" wx:if="{{roomLoading}}">正在加载会议室...</view>
+      <view class="room-item" wx:for="{{roomTimelineRooms}}" wx:key="id">
+        <view class="room-item-head">
+          <view class="room-title-wrap">
+            <text class="room-name">{{item.name}}</text>
+            <text class="room-capacity">{{item.capacity}}人</text>
+          </view>
+          <view class="room-features">{{item.features}}</view>
+        </view>
+        <view class="room-timebar" data-index="{{index}}" bindtap="openRoomTimePanel">
+          <view class="room-bar-segment" wx:for="{{item.segments}}" wx:for-item="segment" wx:key="id"></view>
+          <view
+            class="room-busy-block"
+            wx:for="{{item.bookings}}"
+            wx:for-item="booking"
+            wx:key="index"
+            style="left: {{booking.left}}%; width: {{booking.width}}%;"
+          ></view>
+        </view>
+        <view class="room-hour-row">
+          <text wx:for="{{roomTimelineLabels}}" wx:key="*this">{{item}}</text>
+        </view>
       </view>
-      <view class="slot-status {{item.status}}">{{item.status === 'busy' ? '已占用' : '可预约'}}</view>
+      <view class="empty" wx:if="{{!roomLoading && roomTimelineRooms.length === 0}}">暂无会议室，请管理员先添加</view>
+    </view>
+
+    <view class="picker-mask" wx:if="{{pickerPanelVisible}}" catchtap="closePickerPanel">
+      <view class="picker-panel {{pickerPanelType === 'time' ? 'time-panel' : ''}}" catchtap="noop">
+        <view class="picker-panel-head">
+          <button class="picker-panel-action" bindtap="closePickerPanel">取消</button>
+          <view class="picker-panel-title">{{pickerPanelTitle}}</view>
+          <button class="picker-panel-action primary" bindtap="confirmPickerPanel">确定</button>
+        </view>
+
+        <view class="calendar-panel" wx:if="{{pickerPanelType === 'date'}}">
+          <view class="calendar-nav">
+            <button class="calendar-nav-button" bindtap="prevCalendarMonth">‹</button>
+            <view class="calendar-month">{{calendarTitle}}</view>
+            <button class="calendar-nav-button" bindtap="nextCalendarMonth">›</button>
+          </view>
+          <view class="calendar-weekdays">
+            <view wx:for="{{weekdays}}" wx:key="*this">{{item}}</view>
+          </view>
+          <view class="calendar-grid">
+            <view
+              wx:for="{{calendarDays}}"
+              wx:key="key"
+              class="calendar-day {{item.inMonth ? '' : 'muted-day'}} {{item.disabled ? 'disabled' : ''}} {{item.value === pendingMeetingDate ? 'selected' : ''}}"
+              data-date="{{item.value}}"
+              bindtap="selectCalendarDay"
+            >
+              <text>{{item.day}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="timeline-panel" wx:if="{{pickerPanelType === 'time'}}">
+          <view class="timeline-hint">{{pendingChoosingEnd ? '开始时间已固定，再按住结束时间位置拖拽时长' : '先点一下开始时间，再拖拽结束时间；最多 6 小时'}}</view>
+          <view class="timeline-summary">{{pendingMeetingDateText}} {{pendingStartTime}} - {{pendingEndTime}}（{{pendingDurationHours}}小时）</view>
+          <view class="timeline-list" catchtouchstart="startTimeDrag" catchtouchmove="moveTimeDrag" catchtouchend="endTimeDrag">
+            <view
+              wx:for="{{timeSlots}}"
+              wx:key="hour"
+              class="timeline-row {{item.selected ? 'selected' : ''}} {{item.start ? 'start' : ''}} {{item.end ? 'end' : ''}}"
+              data-hour="{{item.hour}}"
+            >
+              <view class="timeline-hour">{{item.label}}</view>
+              <view class="timeline-cell">
+                <view class="timeline-fill" wx:if="{{item.selected}}"></view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
     </view>
   </view>
 </view>

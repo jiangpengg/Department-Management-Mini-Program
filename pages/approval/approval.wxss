@@ -1,8 +1,20 @@
 .filter {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
   padding: 8rpx;
   margin-bottom: 22rpx;
+  overflow: hidden;
+}
+
+.filter.cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.filter.cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.filter.cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .filter-item {
@@ -11,8 +23,11 @@
   color: #66726e;
   text-align: center;
   line-height: 68rpx;
-  font-size: 26rpx;
+  font-size: 24rpx;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .filter-item.active {
@@ -22,6 +37,7 @@
 
 .approval-card {
   padding: 26rpx;
+  overflow: hidden;
 }
 
 .approval-head {
@@ -29,6 +45,11 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 20rpx;
+  min-width: 0;
+}
+
+.approval-head > view:first-child {
+  min-width: 0;
 }
 
 .type {
@@ -41,6 +62,8 @@
   margin-top: 8rpx;
   font-size: 32rpx;
   font-weight: 900;
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 .detail {
@@ -50,6 +73,24 @@
   line-height: 1.55;
 }
 
+.flow-line {
+  margin-top: 14rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 8rpx;
+  color: #1f5f54;
+  background: #edf7f4;
+  font-size: 24rpx;
+  font-weight: 800;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.muted-flow {
+  color: #6b7773;
+  background: #f4f7f6;
+  font-weight: 600;
+}
+
 .meta {
   display: flex;
   justify-content: space-between;
@@ -57,16 +98,23 @@
   margin-top: 18rpx;
   color: #6b7773;
   font-size: 24rpx;
+  flex-wrap: wrap;
 }
 
 .actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18rpx;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14rpx;
   margin-top: 24rpx;
+  width: 100%;
+  overflow: hidden;
 }
 
 .actions .primary-button,
 .actions .ghost-button {
+  width: 100%;
+  min-width: 0;
   height: 76rpx;
+  padding: 0;
+  font-size: 27rpx;
 }

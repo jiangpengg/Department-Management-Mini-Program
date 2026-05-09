@@ -1,29 +1,271 @@
-<view class="page">
+﻿<view class="page">
   <view class="task-toolbar">
     <view>
-      <view class="page-title">任务推送</view>
-      <view class="page-subtitle">分派、跟踪、催办和完成反馈</view>
+      <view class="page-title">工作任务看板</view>
+      <view class="page-subtitle">现场、应急、重点工作分类跟踪</view>
     </view>
-    <button class="add-button" bindtap="createTask">+</button>
+    <button class="add-button" bindtap="createTask">+ 新建</button>
+  </view>
+
+  <view class="work-summary">
+    <view class="summary-card card {{activeCategory === item.key ? 'active' : ''}}" wx:for="{{summaries}}" wx:key="key" data-key="{{item.key}}" bindtap="switchCategory">
+      <view class="summary-value">{{item.count}}<text>项</text></view>
+      <view class="summary-name">{{item.name}}</view>
+    </view>
+  </view>
+
+  <view class="category-tabs">
+    <view class="category-tab {{activeCategory === item.key ? 'active' : ''}}" wx:for="{{categories}}" wx:key="key" data-key="{{item.key}}" bindtap="switchCategory">
+      {{item.name}}
+    </view>
+  </view>
+
+  <view class="onsite-filters" wx:if="{{activeCategory === 'onsite'}}">
+    <view class="filter-row">
+      <view
+        wx:for="{{onsiteOwnerFilters}}"
+        wx:key="key"
+        class="filter-chip {{onsiteOwnerFilter === item.key ? 'active' : ''}}"
+        data-key="{{item.key}}"
+        bindtap="switchOnsiteOwnerFilter"
+      >
+        {{item.name}}
+      </view>
+    </view>
+    <view class="filter-row">
+      <view
+        wx:for="{{onsiteTimeFilters}}"
+        wx:key="key"
+        class="filter-chip {{onsiteTimeFilter === item.key ? 'active' : ''}}"
+        data-key="{{item.key}}"
+        bindtap="switchOnsiteTimeFilter"
+      >
+        {{item.name}}
+      </view>
+    </view>
   </view>
 
   <view class="list">
-    <view class="task-card card" wx:for="{{tasks}}" wx:key="id">
+    <view class="task-card card" wx:for="{{tasks}}" wx:key="id" data-id="{{item.id}}" bindtap="openTaskDetail">
       <view class="task-head">
         <view class="task-title">{{item.title}}</view>
         <status-pill text="{{item.statusText}}" tone="{{item.statusTone}}" />
       </view>
       <view class="task-meta">
-        <text>负责人：{{item.owner}}</text>
-        <text>截止：{{item.deadline}}</text>
+        <text>璐熻矗浜猴細{{item.owner}}</text>
+        <text wx:if="{{activeCategory === 'onsite'}}">浠诲姟鏃堕棿锛歿{item.timeText}}</text>
+        <text wx:else>鎴锛歿{item.deadline}}</text>
+      </view>
+      <view class="task-detail" wx:if="{{item.riskLevel || item.attendance || item.participants}}">
+        <text wx:if="{{item.riskLevel}}">椋庨櫓锛歿{item.riskLevel}}</text>
+        <text wx:if="{{item.attendance}}">鍒板矖鍒颁綅锛歿{item.attendance}}</text>
+        <text wx:if="{{item.participants}}">鍙備笌锛歿{item.participants}}</text>
       </view>
       <view class="progress">
         <view class="progress-bar" style="width: {{item.progress}}%;"></view>
       </view>
       <view class="task-footer">
-        <view class="priority">优先级：{{item.priority}}</view>
-        <button class="mini-button" data-id="{{item.id}}" bindtap="finishTask">完成</button>
+        <view></view>
+        <view class="task-actions">
+          <view class="mini-button" wx:if="{{activeCategory === 'onsite' && item.canStart}}" data-id="{{item.id}}" catchtap="openStartTask">鍚姩</view>
+          <view class="mini-button" wx:if="{{activeCategory !== 'onsite' || item.canFinish}}" data-id="{{item.id}}" catchtap="finishTask">完成</view>
+        </view>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{tasks.length === 0}}">暂无未闭环工作</view>
+  </view>
+
+  <view class="work-mask" wx:if="{{createPanelVisible}}" catchtap="closeCreatePanel">
+    <view class="work-panel" catchtap="noop">
+      <view class="work-panel-head">
+        <button class="panel-action" bindtap="closeCreatePanel">取消</button>
+        <view class="panel-title">{{isEditingTask ? '编辑现场工作' : '创建现场工作'}}</view>
+        <button class="panel-action primary" bindtap="submitOnsiteWork">确定</button>
+      </view>
+      <view class="work-form">
+        <view class="field">
+          <view class="label">宸ヤ綔鏃堕棿</view>
+          <view class="date-range-row" bindtap="openCalendarPanel">
+            <view class="picker-value compact">{{onsiteForm.date}}</view>
+            <view class="date-range-separator">至</view>
+            <view class="picker-value compact">{{onsiteForm.endDate}}</view>
+          </view>
+        </view>
+        <view class="field">
+          <view class="label">浠诲姟</view>
+          <input value="{{onsiteForm.task}}" data-field="task" bindinput="onOnsiteInput" placeholder="请输入现场工作任务" />
+        </view>
+        <view class="field">
+          <view class="label">椋庨櫓绛夌骇</view>
+          <view class="risk-row">
+            <view
+              wx:for="{{riskLevels}}"
+              wx:key="*this"
+              class="risk-chip {{onsiteForm.riskLevel === item ? 'active' : ''}}"
+              data-value="{{item}}"
+              bindtap="selectRiskLevel"
+            >
+              {{item}}
+            </view>
+          </view>
+        </view>
+        <view class="field">
+          <view class="label">璇曢獙椤圭洰</view>
+          <view class="select-project-box" bindtap="openProjectPanel">
+            <text>{{projectTypeNames[projectTypeIndex]}}</text>
+            <text class="select-arrow">选择</text>
+          </view>
+        </view>
+        <view class="field">
+          <view class="label">负责人</view>
+          <input value="{{onsiteForm.owner}}" bindinput="onOwnerInput" placeholder="输入姓名，自动匹配所内人员" />
+          <view class="suggestion-list" wx:if="{{ownerSuggestions.length}}">
+            <view
+              class="suggestion-item"
+              wx:for="{{ownerSuggestions}}"
+              wx:key="*this"
+              data-name="{{item}}"
+              bindtap="selectOwnerSuggestion"
+            >
+              {{item}}
+            </view>
+          </view>
+        </view>
+        <view class="field">
+          <view class="label">鍒板矖鍒颁綅浜哄憳</view>
+          <view class="select-people-box" bindtap="openAttendancePanel">
+            <view class="selected-tags" wx:if="{{onsiteForm.attendance.length}}">
+              <view class="selected-tag" wx:for="{{onsiteForm.attendance}}" wx:key="*this">
+                <text>{{item}}</text>
+                <text class="tag-remove" data-field="attendance" data-name="{{item}}" catchtap="removeSelectedPerson">脳</text>
+              </view>
+            </view>
+            <text class="placeholder" wx:else>点击选择到岗到位人员</text>
+          </view>
+        </view>
+        <view class="field">
+          <view class="label">参与人</view>
+          <view class="select-people-box" bindtap="openParticipantsPanel">
+            <view class="selected-tags" wx:if="{{onsiteForm.participants.length}}">
+              <view class="selected-tag" wx:for="{{onsiteForm.participants}}" wx:key="*this">
+                <text>{{item}}</text>
+                <text class="tag-remove" data-field="participants" data-name="{{item}}" catchtap="removeSelectedPerson">脳</text>
+              </view>
+            </view>
+            <text class="placeholder" wx:else>输入搜索后勾选参与人员</text>
+          </view>
+        </view>
+        <view class="delete-task-button" wx:if="{{isEditingTask}}" bindtap="deleteEditingTask">鍒犻櫎浠诲姟</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="calendar-mask" wx:if="{{calendarPanelVisible}}" catchtap="closeCalendarPanel">
+    <view class="calendar-panel" catchtap="noop">
+      <view class="calendar-head">
+        <button class="panel-action" bindtap="closeCalendarPanel">取消</button>
+        <view>
+          <view class="calendar-title">选择工作日期</view>
+          <view class="calendar-range-text">{{tempStartDate}} 至 {{tempEndDate}}</view>
+        </view>
+        <button class="panel-action primary" bindtap="confirmCalendarRange">确定</button>
+      </view>
+      <view class="calendar-nav">
+        <button class="calendar-nav-button" bindtap="prevCalendarMonth">‹</button>
+        <view class="calendar-month">{{calendarTitle}}</view>
+        <button class="calendar-nav-button" bindtap="nextCalendarMonth">›</button>
+      </view>
+      <view class="calendar-weekdays">
+        <view wx:for="{{calendarWeekdays}}" wx:key="*this">{{item}}</view>
+      </view>
+      <view class="calendar-grid">
+        <view
+          wx:for="{{calendarDays}}"
+          wx:key="key"
+          class="calendar-day {{item.inMonth ? '' : 'muted'}} {{item.inRange ? 'in-range' : ''}} {{item.selectedStart ? 'selected-start' : ''}} {{item.selectedEnd ? 'selected-end' : ''}}"
+          data-date="{{item.value}}"
+          bindtap="selectCalendarDay"
+        >
+          <text>{{item.day}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="project-mask" wx:if="{{projectPanelVisible}}" catchtap="closeProjectPanel">
+    <view class="project-panel" catchtap="noop">
+      <view class="work-panel-head">
+        <button class="panel-action" bindtap="closeProjectPanel">取消</button>
+        <view class="panel-title">选择试验项目</view>
+        <button class="panel-action primary" bindtap="closeProjectPanel">完成</button>
+      </view>
+      <view class="project-panel-body">
+        <input class="person-search" value="{{projectSearch}}" bindinput="onProjectSearch" placeholder="输入试验项目名称搜索" />
+        <view class="project-list">
+          <view
+            wx:for="{{filteredProjects}}"
+            wx:key="key"
+            class="project-row-item {{projectTypeIndex === item.index ? 'checked' : ''}}"
+            data-index="{{item.index}}"
+            bindtap="confirmProjectSelection"
+          >
+            <text>{{item.name}}</text>
+            <text class="person-check">{{projectTypeIndex === item.index ? '✓' : ''}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="person-mask" wx:if="{{personPanelVisible}}" catchtap="closePersonPanel">
+    <view class="person-panel" catchtap="noop">
+      <view class="work-panel-head">
+        <button class="panel-action" bindtap="closePersonPanel">取消</button>
+        <view class="panel-title">{{personPanelTitle}}</view>
+        <button class="panel-action primary" bindtap="confirmPersonPanel">确定</button>
+      </view>
+      <view class="person-panel-body">
+        <input class="person-search" value="{{personSearch}}" bindinput="onPersonSearch" placeholder="输入姓名搜索" />
+        <view class="selected-line" wx:if="{{tempSelectedPeopleText}}">
+          已选：{{tempSelectedPeopleText}}
+        </view>
+        <view class="person-list">
+          <view
+            wx:for="{{filteredPeople}}"
+            wx:key="name"
+            class="person-row {{tempSelectedPeople.indexOf(item.name) >= 0 ? 'checked' : ''}}"
+            data-name="{{item.name}}"
+            bindtap="toggleTempPerson"
+          >
+            <view class="person-info">
+              <text>{{item.name}}</text>
+              <text class="person-level">{{item.levelText}}</text>
+            </view>
+            <text class="person-check">{{tempSelectedPeople.indexOf(item.name) >= 0 ? '✓' : ''}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="work-mask" wx:if="{{startPanelVisible}}" catchtap="closeStartPanel">
+    <view class="work-panel" catchtap="noop">
+      <view class="work-panel-head">
+        <button class="panel-action" bindtap="closeStartPanel">取消</button>
+        <view class="panel-title">鍚姩鐜板満宸ヤ綔</view>
+        <button class="panel-action primary" bindtap="confirmStartTask">确定</button>
+      </view>
+      <view class="work-form">
+        <view class="field">
+          <view class="label">鍒板矖鍒颁綅浜哄憳</view>
+          <checkbox-group bindchange="onStartAttendanceChange">
+            <label class="person-option" wx:for="{{peopleNames}}" wx:key="*this">
+              <checkbox value="{{item}}" checked="{{startAttendance.indexOf(item) >= 0}}" />{{item}}
+            </label>
+          </checkbox-group>
+        </view>
       </view>
     </view>
   </view>
 </view>
+

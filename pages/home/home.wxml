@@ -1,11 +1,13 @@
 <view class="page">
   <view class="hero">
     <view>
-      <view class="hero-kicker">{{user.department}}</view>
-      <view class="hero-title">部门事务工作台</view>
-      <view class="hero-subtitle">{{user.name}} · {{user.role}}</view>
+      <view class="hero-kicker">{{instituteName}}</view>
+      <view class="hero-title">所事务工作台</view>
     </view>
-    <view class="hero-date">5月1日</view>
+    <view class="hero-side">
+      <view class="hero-date">{{todayText}}</view>
+      <view class="hero-weather">{{weather}}</view>
+    </view>
   </view>
 
   <view class="metrics">
@@ -22,33 +24,49 @@
     <view class="quick-card card" wx:for="{{applicationTypes}}" wx:key="key" bindtap="goApply" data-type="{{item.key}}">
       <view class="quick-icon">{{item.icon}}</view>
       <view class="quick-name">{{item.name}}</view>
-      <view class="quick-desc">{{item.desc}}</view>
     </view>
   </view>
 
   <view class="section-title">
-    <text>最近申请</text>
-    <text class="more" bindtap="goApproval">全部</text>
+    <text>本周现场工作</text>
   </view>
   <view class="list">
-    <view class="application card" wx:for="{{applications}}" wx:key="id">
+    <view class="application card" wx:for="{{onsiteWorks}}" wx:key="id">
       <view class="application-main">
-        <view class="application-type">{{item.type}}</view>
+        <view class="application-type">{{item.department}}</view>
         <view class="application-title">{{item.title}}</view>
-        <view class="application-meta">{{item.applicant}} · {{item.time}}</view>
+        <view class="application-meta">{{item.owner}} · {{item.date}}</view>
       </view>
       <status-pill text="{{item.statusText}}" tone="{{item.statusTone}}" />
     </view>
+    <view class="empty" wx:if="{{onsiteWorks.length === 0}}">本周暂无现场工作</view>
   </view>
 
   <view class="section-title">
-    <text>项目提醒</text>
+    <text>应急支撑情况</text>
   </view>
-  <view class="project-alert card">
-    <view>
-      <view class="project-alert-title">{{riskProject.name}}</view>
-      <view class="project-alert-meta">{{riskProject.stage}} · {{riskProject.nextNode}}</view>
+  <view class="list">
+    <view class="application card" wx:for="{{emergencyWorks}}" wx:key="id">
+      <view class="application-main">
+        <view class="application-type">{{item.department}}</view>
+        <view class="application-title">{{item.title}}</view>
+        <view class="application-meta">{{item.owner}} · 截止 {{item.deadline}}</view>
+      </view>
+      <status-pill text="{{item.statusText}}" tone="{{item.statusTone}}" />
     </view>
-    <view class="project-alert-progress">{{riskProject.progress}}%</view>
+    <view class="empty" wx:if="{{emergencyWorks.length === 0}}">暂无未闭环应急工作</view>
+  </view>
+
+  <view class="section-title">
+    <text>项目推进情况</text>
+  </view>
+  <view class="list">
+    <view class="project-alert card" wx:for="{{projectWorks}}" wx:key="id">
+      <view>
+        <view class="project-alert-title">{{item.name}}</view>
+        <view class="project-alert-meta">{{item.stage}} · {{item.nextNode}}</view>
+      </view>
+      <view class="project-alert-progress">{{item.progress}}%</view>
+    </view>
   </view>
 </view>

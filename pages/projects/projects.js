@@ -14,5 +14,11 @@ Page({
         return { ...item, statusText: meta.text, statusTone: meta.tone };
       })
     });
+  },
+
+  onShow() {
+    if (this.getTabBar) {
+      this.getTabBar().setData({ selected: 3 });
+    }
   }
 });

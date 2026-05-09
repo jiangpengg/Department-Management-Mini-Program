@@ -30,8 +30,9 @@
     }
   },
   "compileType": "miniprogram",
+  "cloudfunctionRoot": "cloudfunctions/",
   "libVersion": "3.7.12",
-  "appid": "touristappid",
+  "appid": "wxb7796d7f6d355bec",
   "projectname": "department-management-miniapp",
   "condition": {},
   "simulatorPluginLibVersion": {},
