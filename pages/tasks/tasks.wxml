@@ -21,6 +21,9 @@
   </view>
 
   <view class="onsite-filters" wx:if="{{activeCategory === 'onsite'}}">
+    <view class="onsite-config-row">
+      <button class="config-work-button" bindtap="openWorkConfigPanel">配置工作</button>
+    </view>
     <view class="filter-row">
       <view
         wx:for="{{onsiteOwnerFilters}}"
@@ -52,14 +55,19 @@
         <status-pill text="{{item.statusText}}" tone="{{item.statusTone}}" />
       </view>
       <view class="task-meta">
-        <text>璐熻矗浜猴細{{item.owner}}</text>
-        <text wx:if="{{activeCategory === 'onsite'}}">浠诲姟鏃堕棿锛歿{item.timeText}}</text>
-        <text wx:else>鎴锛歿{item.deadline}}</text>
+        <text>负责人：{{item.owner}}</text>
+        <text wx:if="{{activeCategory === 'onsite' && item.riskLevel}}">
+          风险等级：<text class="risk-number {{item.riskTone}}">{{item.riskLevel}}</text>
+        </text>
+        <text wx:if="{{activeCategory === 'onsite'}}">任务时间：{{item.timeText}}</text>
+        <text wx:else>截止：{{item.deadline}}</text>
       </view>
-      <view class="task-detail" wx:if="{{item.riskLevel || item.attendance || item.participants}}">
-        <text wx:if="{{item.riskLevel}}">椋庨櫓锛歿{item.riskLevel}}</text>
-        <text wx:if="{{item.attendance}}">鍒板矖鍒颁綅锛歿{item.attendance}}</text>
-        <text wx:if="{{item.participants}}">鍙備笌锛歿{item.participants}}</text>
+      <view class="task-detail" wx:if="{{(activeCategory !== 'onsite' && item.riskLevel) || item.attendance || item.participants}}">
+        <text wx:if="{{activeCategory !== 'onsite' && item.riskLevel}}">风险：{{item.riskLevel}}</text>
+        <view class="people-line" wx:if="{{item.attendance || item.participants}}">
+          <text wx:if="{{item.attendance}}">到岗到位：{{item.attendance}}</text>
+          <text wx:if="{{item.participants}}">参与：{{item.participants}}</text>
+        </view>
       </view>
       <view class="progress">
         <view class="progress-bar" style="width: {{item.progress}}%;"></view>
@@ -67,7 +75,7 @@
       <view class="task-footer">
         <view></view>
         <view class="task-actions">
-          <view class="mini-button" wx:if="{{activeCategory === 'onsite' && item.canStart}}" data-id="{{item.id}}" catchtap="openStartTask">鍚姩</view>
+          <view class="mini-button" wx:if="{{activeCategory === 'onsite' && item.canStart}}" data-id="{{item.id}}" catchtap="openStartTask">启动</view>
           <view class="mini-button" wx:if="{{activeCategory !== 'onsite' || item.canFinish}}" data-id="{{item.id}}" catchtap="finishTask">完成</view>
         </view>
       </view>
@@ -84,7 +92,7 @@
       </view>
       <view class="work-form">
         <view class="field">
-          <view class="label">宸ヤ綔鏃堕棿</view>
+          <view class="label">工作时间</view>
           <view class="date-range-row" bindtap="openCalendarPanel">
             <view class="picker-value compact">{{onsiteForm.date}}</view>
             <view class="date-range-separator">至</view>
@@ -92,11 +100,11 @@
           </view>
         </view>
         <view class="field">
-          <view class="label">浠诲姟</view>
+          <view class="label">任务</view>
           <input value="{{onsiteForm.task}}" data-field="task" bindinput="onOnsiteInput" placeholder="请输入现场工作任务" />
         </view>
         <view class="field">
-          <view class="label">椋庨櫓绛夌骇</view>
+          <view class="label">风险等级</view>
           <view class="risk-row">
             <view
               wx:for="{{riskLevels}}"
@@ -110,7 +118,7 @@
           </view>
         </view>
         <view class="field">
-          <view class="label">璇曢獙椤圭洰</view>
+          <view class="label">试验项目</view>
           <view class="select-project-box" bindtap="openProjectPanel">
             <text>{{projectTypeNames[projectTypeIndex]}}</text>
             <text class="select-arrow">选择</text>
@@ -132,12 +140,12 @@
           </view>
         </view>
         <view class="field">
-          <view class="label">鍒板矖鍒颁綅浜哄憳</view>
+          <view class="label">到岗到位人员</view>
           <view class="select-people-box" bindtap="openAttendancePanel">
             <view class="selected-tags" wx:if="{{onsiteForm.attendance.length}}">
               <view class="selected-tag" wx:for="{{onsiteForm.attendance}}" wx:key="*this">
                 <text>{{item}}</text>
-                <text class="tag-remove" data-field="attendance" data-name="{{item}}" catchtap="removeSelectedPerson">脳</text>
+                <text class="tag-remove" data-field="attendance" data-name="{{item}}" catchtap="removeSelectedPerson">×</text>
               </view>
             </view>
             <text class="placeholder" wx:else>点击选择到岗到位人员</text>
@@ -149,13 +157,13 @@
             <view class="selected-tags" wx:if="{{onsiteForm.participants.length}}">
               <view class="selected-tag" wx:for="{{onsiteForm.participants}}" wx:key="*this">
                 <text>{{item}}</text>
-                <text class="tag-remove" data-field="participants" data-name="{{item}}" catchtap="removeSelectedPerson">脳</text>
+                <text class="tag-remove" data-field="participants" data-name="{{item}}" catchtap="removeSelectedPerson">×</text>
               </view>
             </view>
             <text class="placeholder" wx:else>输入搜索后勾选参与人员</text>
           </view>
         </view>
-        <view class="delete-task-button" wx:if="{{isEditingTask}}" bindtap="deleteEditingTask">鍒犻櫎浠诲姟</view>
+        <view class="delete-task-button" wx:if="{{isEditingTask}}" bindtap="deleteEditingTask">删除任务</view>
       </view>
     </view>
   </view>
@@ -217,6 +225,55 @@
     </view>
   </view>
 
+  <view class="project-mask" wx:if="{{configPanelVisible}}" catchtap="closeWorkConfigPanel">
+    <view class="project-panel config-panel" catchtap="noop">
+      <view class="work-panel-head">
+        <button class="panel-action" bindtap="closeWorkConfigPanel">取消</button>
+        <view class="panel-title">配置现场工作</view>
+        <button class="panel-action primary" bindtap="saveCurrentProjectConfig">保存</button>
+      </view>
+      <view class="project-panel-body">
+        <view class="field">
+          <view class="label">新增试验项目</view>
+          <view class="config-add-row">
+            <input value="{{newProjectName}}" bindinput="onNewProjectNameInput" placeholder="输入试验项目名称" />
+            <button bindtap="addProjectConfig">添加</button>
+          </view>
+        </view>
+        <view class="config-project-tabs">
+          <view
+            wx:for="{{projectConfigs}}"
+            wx:key="key"
+            class="config-project-tab {{configProjectIndex === index ? 'active' : ''}}"
+            data-index="{{index}}"
+            bindtap="selectConfigProject"
+          >
+            {{item.name}}
+          </view>
+        </view>
+        <view class="field">
+          <view class="label">项目名称</view>
+          <input value="{{configProjectName}}" bindinput="onConfigProjectNameInput" placeholder="输入项目名称" />
+        </view>
+        <view class="config-section-title">
+          <text>对应仪器列表</text>
+          <button bindtap="addConfigEquipment">添加仪器</button>
+        </view>
+        <view class="config-equipment-card" wx:for="{{configEquipmentList}}" wx:key="instrumentId">
+          <view class="config-equipment-head">
+            <text>仪器 {{index + 1}}</text>
+            <button data-index="{{index}}" bindtap="removeConfigEquipment">删除</button>
+          </view>
+          <input data-index="{{index}}" data-field="name" value="{{item.name}}" bindinput="onConfigEquipmentInput" placeholder="仪器名称" />
+          <input data-index="{{index}}" data-field="quantity" value="{{item.quantity}}" type="number" bindinput="onConfigEquipmentInput" placeholder="数量" />
+          <input data-index="{{index}}" data-field="purpose" value="{{item.purpose}}" bindinput="onConfigEquipmentInput" placeholder="用途" />
+        </view>
+        <view class="empty" wx:if="{{configEquipmentList.length === 0}}">暂无仪器，点击添加仪器</view>
+        <view class="delete-task-button" bindtap="deleteCurrentProjectConfig">删除当前试验项目</view>
+      </view>
+    </view>
+  </view>
+
   <view class="person-mask" wx:if="{{personPanelVisible}}" catchtap="closePersonPanel">
     <view class="person-panel" catchtap="noop">
       <view class="work-panel-head">
@@ -239,30 +296,9 @@
           >
             <view class="person-info">
               <text>{{item.name}}</text>
-              <text class="person-level">{{item.levelText}}</text>
             </view>
             <text class="person-check">{{tempSelectedPeople.indexOf(item.name) >= 0 ? '✓' : ''}}</text>
           </view>
-        </view>
-      </view>
-    </view>
-  </view>
-
-  <view class="work-mask" wx:if="{{startPanelVisible}}" catchtap="closeStartPanel">
-    <view class="work-panel" catchtap="noop">
-      <view class="work-panel-head">
-        <button class="panel-action" bindtap="closeStartPanel">取消</button>
-        <view class="panel-title">鍚姩鐜板満宸ヤ綔</view>
-        <button class="panel-action primary" bindtap="confirmStartTask">确定</button>
-      </view>
-      <view class="work-form">
-        <view class="field">
-          <view class="label">鍒板矖鍒颁綅浜哄憳</view>
-          <checkbox-group bindchange="onStartAttendanceChange">
-            <label class="person-option" wx:for="{{peopleNames}}" wx:key="*this">
-              <checkbox value="{{item}}" checked="{{startAttendance.indexOf(item) >= 0}}" />{{item}}
-            </label>
-          </checkbox-group>
         </view>
       </view>
     </view>

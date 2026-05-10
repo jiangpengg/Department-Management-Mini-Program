@@ -2,6 +2,31 @@ const { buildTaskBoard, getStatusMeta, instruments, users, equipmentTemplates } 
 const { ensureAuthorized } = require("../../utils/auth");
 
 const ATTENDANCE_LEVEL_KEY = "attendanceLevelOverrides";
+const ONSITE_PROJECT_CONFIG_KEY = "onsiteProjectConfigs";
+
+const DEFAULT_PROJECT_CONFIGS = [
+  {
+    key: "temperature",
+    name: "测温类试验",
+    equipment: [
+      { instrumentId: "I001", name: "红外测温仪", quantity: 1, purpose: "设备温度核查" }
+    ]
+  },
+  {
+    key: "grounding",
+    name: "接地类试验",
+    equipment: [
+      { instrumentId: "I003", name: "接地电阻测试仪", quantity: 1, purpose: "接地状态复核" }
+    ]
+  },
+  {
+    key: "discharge",
+    name: "局放类试验",
+    equipment: [
+      { instrumentId: "I002", name: "局放检测仪", quantity: 1, purpose: "局放检测" }
+    ]
+  }
+];
 
 function decorate(list) {
   return list.map((item) => {
@@ -21,6 +46,22 @@ function formatDate(date) {
 function parseDate(value) {
   const parts = String(value || formatDate(new Date())).split("-").map(Number);
   return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+
+function formatShortDate(value) {
+  const parts = String(value || "").split("-");
+  if (parts.length < 3) return value || "";
+  return `${Number(parts[1])}月${Number(parts[2])}日`;
+}
+
+function formatShortDateRange(start, end) {
+  const startText = formatShortDate(start);
+  const endText = formatShortDate(end || start);
+  return startText === endText ? startText : `${startText} 至 ${endText}`;
+}
+
+function getRiskTone(value) {
+  return Number(value) <= 3 ? "red" : "amber";
 }
 
 const onsiteStatusMeta = {
@@ -91,19 +132,22 @@ Page({
     instruments,
     riskLevels: ["1", "2", "3", "4", "5"],
     riskIndex: 0,
+    projectConfigs: DEFAULT_PROJECT_CONFIGS,
     projectTypes: ["temperature", "grounding", "discharge"],
     projectTypeNames: ["测温类试验", "接地类试验", "局放类试验"],
     projectTypeIndex: 0,
     projectPanelVisible: false,
     projectSearch: "",
     filteredProjects: [],
+    configPanelVisible: false,
+    configProjectIndex: 0,
+    configProjectName: "",
+    configEquipmentList: [],
+    newProjectName: "",
     attendanceLevels: {},
     peopleNames: users.filter((item) => item.authorized).map((item) => item.name),
     ownerSuggestions: [],
     ownerIndex: 0,
-    startPanelVisible: false,
-    startTaskId: "",
-    startAttendance: [],
     personPanelVisible: false,
     personPanelType: "",
     personPanelTitle: "",
@@ -124,6 +168,7 @@ Page({
 
   async onLoad() {
     if (!ensureAuthorized()) return;
+    this.loadProjectConfigs();
     const attendanceLevels = await this.loadAttendanceLevels();
     this.setData({ attendanceLevels });
     this.loadBoard();
@@ -145,6 +190,42 @@ Page({
     }
   },
 
+  loadProjectConfigs() {
+    const stored = wx.getStorageSync(ONSITE_PROJECT_CONFIG_KEY);
+    const projectConfigs = Array.isArray(stored) && stored.length ? stored : DEFAULT_PROJECT_CONFIGS;
+    this.applyProjectConfigs(projectConfigs);
+  },
+
+  applyProjectConfigs(projectConfigs, selectedIndex = this.data.configProjectIndex || 0) {
+    const normalized = projectConfigs.map((item, index) => ({
+      key: item.key || `project-${Date.now()}-${index}`,
+      name: item.name || "未命名试验项目",
+      equipment: Array.isArray(item.equipment) ? item.equipment : []
+    }));
+    const configProjectIndex = Math.min(Math.max(selectedIndex, 0), Math.max(normalized.length - 1, 0));
+    const selected = normalized[configProjectIndex] || { name: "", equipment: [] };
+    this.setData({
+      projectConfigs: normalized,
+      projectTypes: normalized.map((item) => item.key),
+      projectTypeNames: normalized.map((item) => item.name),
+      configProjectIndex,
+      configProjectName: selected.name,
+      configEquipmentList: selected.equipment.map((item) => ({ ...item })),
+      projectTypeIndex: Math.min(this.data.projectTypeIndex || 0, Math.max(normalized.length - 1, 0))
+    });
+  },
+
+  saveProjectConfigs(projectConfigs, selectedIndex) {
+    wx.setStorageSync(ONSITE_PROJECT_CONFIG_KEY, projectConfigs);
+    this.applyProjectConfigs(projectConfigs, selectedIndex);
+  },
+
+  getEquipmentTemplate(projectType) {
+    const config = this.data.projectConfigs.find((item) => item.key === projectType);
+    if (config) return config.equipment.map((item) => ({ ...item }));
+    return (equipmentTemplates[projectType] || []).map((item) => ({ ...item }));
+  },
+
   async loadBoard() {
     const user = getApp().globalData.user;
     const cloudOnsite = await this.loadCloudOnsiteWorks();
@@ -152,7 +233,7 @@ Page({
     const closedOnsiteTaskIds = cloudOnsite.length ? [] : (wx.getStorageSync("closedOnsiteTaskIds") || []);
     const deletedOnsiteTaskIds = wx.getStorageSync("deletedOnsiteTaskIds") || [];
     const board = buildTaskBoard(user);
-    board.onsite = this.mergeOnsite(board.onsite || [], cloudOnsite.concat(localOnsite));
+    board.onsite = this.mergeOnsite([], cloudOnsite.concat(localOnsite));
     board.onsite = board.onsite.filter((item) => deletedOnsiteTaskIds.indexOf(item.id) < 0);
     board.onsite = board.onsite.map((item) => (
       closedOnsiteTaskIds.indexOf(item.id) >= 0 ? { ...item, status: "done", progress: 100 } : item
@@ -205,7 +286,8 @@ Page({
         statusText: meta.text,
         statusTone: meta.tone,
         statusOrder: meta.order,
-        timeText: item.date === item.endDate ? item.date : `${item.date} 至 ${item.endDate || item.deadline || item.date}`,
+        timeText: formatShortDateRange(item.date, item.endDate || item.deadline || item.date),
+        riskTone: getRiskTone(item.riskLevel || item.priority),
         canStart: canOwnTask && normalizedStatus === "waiting",
         canFinish: canOwnTask && normalizedStatus === "processing"
       };
@@ -242,9 +324,16 @@ Page({
   },
 
   async onShow() {
+    const app = getApp();
+    const targetCategory = app.globalData.taskCategory;
+    if (targetCategory) {
+      app.globalData.taskCategory = "";
+      this.setData({ activeCategory: targetCategory });
+    }
     if (this.getTabBar) {
       this.getTabBar().setData({ selected: 2, hidden: false });
     }
+    this.loadProjectConfigs();
     const attendanceLevels = await this.loadAttendanceLevels();
     this.setData({ attendanceLevels });
     this.loadBoard();
@@ -278,11 +367,110 @@ Page({
     });
   },
 
+  openWorkConfigPanel() {
+    this.setData({
+      configPanelVisible: true,
+      newProjectName: ""
+    });
+    this.applyProjectConfigs(this.data.projectConfigs, this.data.configProjectIndex || 0);
+    this.setTabBarHidden(true);
+  },
+
+  closeWorkConfigPanel() {
+    this.setData({
+      configPanelVisible: false,
+      newProjectName: ""
+    });
+    this.setTabBarHidden(this.data.createPanelVisible);
+  },
+
+  selectConfigProject(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    this.applyProjectConfigs(this.data.projectConfigs, index);
+  },
+
+  onConfigProjectNameInput(event) {
+    this.setData({ configProjectName: event.detail.value });
+  },
+
+  onNewProjectNameInput(event) {
+    this.setData({ newProjectName: event.detail.value });
+  },
+
+  addProjectConfig() {
+    const name = this.data.newProjectName.trim();
+    if (!name) {
+      wx.showToast({ title: "请输入试验项目名称", icon: "none" });
+      return;
+    }
+    const projectConfigs = this.data.projectConfigs.concat({
+      key: `custom-${Date.now()}`,
+      name,
+      equipment: []
+    });
+    this.saveProjectConfigs(projectConfigs, projectConfigs.length - 1);
+    this.setData({ newProjectName: "" });
+  },
+
+  saveCurrentProjectConfig() {
+    const index = this.data.configProjectIndex;
+    const name = this.data.configProjectName.trim();
+    if (!name) {
+      wx.showToast({ title: "请输入试验项目名称", icon: "none" });
+      return;
+    }
+    const projectConfigs = this.data.projectConfigs.map((item, itemIndex) => (
+      itemIndex === index
+        ? { ...item, name, equipment: this.data.configEquipmentList.map((equipment) => ({ ...equipment })) }
+        : item
+    ));
+    this.saveProjectConfigs(projectConfigs, index);
+    wx.showToast({ title: "配置已保存", icon: "success" });
+  },
+
+  deleteCurrentProjectConfig() {
+    if (this.data.projectConfigs.length <= 1) {
+      wx.showToast({ title: "至少保留一个试验项目", icon: "none" });
+      return;
+    }
+    const index = this.data.configProjectIndex;
+    const projectConfigs = this.data.projectConfigs.filter((_, itemIndex) => itemIndex !== index);
+    this.saveProjectConfigs(projectConfigs, Math.max(0, index - 1));
+  },
+
+  addConfigEquipment() {
+    const configEquipmentList = this.data.configEquipmentList.concat({
+      instrumentId: `custom-instrument-${Date.now()}`,
+      name: "",
+      quantity: 1,
+      purpose: ""
+    });
+    this.setData({ configEquipmentList });
+  },
+
+  onConfigEquipmentInput(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    const field = event.currentTarget.dataset.field;
+    const value = event.detail.value;
+    const configEquipmentList = this.data.configEquipmentList.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, [field]: field === "quantity" ? Number(value || 1) : value } : item
+    ));
+    this.setData({ configEquipmentList });
+  },
+
+  removeConfigEquipment(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    this.setData({
+      configEquipmentList: this.data.configEquipmentList.filter((_, itemIndex) => itemIndex !== index)
+    });
+  },
+
   createTask() {
     const current = this.data.categories.find((item) => item.key === this.data.activeCategory);
     if (this.data.activeCategory === "onsite") {
       const today = new Date();
       const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      const defaultProjectType = this.data.projectTypes[0] || "temperature";
       this.setData({
         createPanelVisible: true,
         editingTaskId: "",
@@ -298,7 +486,7 @@ Page({
           owner: getApp().globalData.user.name,
           participants: [],
           participantsText: "",
-          projectType: "temperature"
+          projectType: defaultProjectType
         },
         riskIndex: 0,
         projectTypeIndex: 0,
@@ -379,7 +567,7 @@ Page({
         owner: task.owner || "",
         participants,
         participantsText: participants.join("、"),
-        projectType: task.projectType || this.data.projectTypes[projectIndex]
+        projectType: this.data.projectTypes[projectIndex] || task.projectType
       },
       riskIndex: Math.max(0, this.data.riskLevels.indexOf(String(task.riskLevel || task.priority || "1"))),
       projectTypeIndex: projectIndex,
@@ -398,7 +586,7 @@ Page({
       projectPanelVisible: false,
       projectSearch: ""
     });
-    this.setTabBarHidden(this.data.createPanelVisible || this.data.startPanelVisible);
+    this.setTabBarHidden(this.data.createPanelVisible);
   },
 
   onProjectSearch(event) {
@@ -426,7 +614,7 @@ Page({
       projectPanelVisible: false,
       projectSearch: ""
     });
-    this.setTabBarHidden(this.data.createPanelVisible || this.data.startPanelVisible);
+    this.setTabBarHidden(this.data.createPanelVisible);
   },
 
   onOwnerInput(event) {
@@ -467,7 +655,7 @@ Page({
     this.setData({
       calendarPanelVisible: false
     });
-    this.setTabBarHidden(this.data.createPanelVisible || this.data.startPanelVisible);
+    this.setTabBarHidden(this.data.createPanelVisible);
   },
 
   prevCalendarMonth() {
@@ -536,7 +724,7 @@ Page({
       "onsiteForm.endDate": this.data.tempEndDate,
       calendarPanelVisible: false
     });
-    this.setTabBarHidden(this.data.createPanelVisible || this.data.startPanelVisible);
+    this.setTabBarHidden(this.data.createPanelVisible);
   },
 
   openAttendancePanel() {
@@ -560,8 +748,7 @@ Page({
         const level = this.getPersonAttendanceLevel(name);
         return {
           name,
-          level,
-          levelText: level ? `到岗${level}级` : "未配置"
+          level
         };
       })
       .sort((a, b) => {
@@ -594,7 +781,7 @@ Page({
       tempSelectedPeople: [],
       tempSelectedPeopleText: ""
     });
-    this.setTabBarHidden(this.data.createPanelVisible || this.data.startPanelVisible);
+    this.setTabBarHidden(this.data.createPanelVisible);
   },
 
   onPersonSearch(event) {
@@ -633,7 +820,7 @@ Page({
       tempSelectedPeople: [],
       tempSelectedPeopleText: ""
     });
-    this.setTabBarHidden(this.data.createPanelVisible || this.data.startPanelVisible);
+    this.setTabBarHidden(this.data.createPanelVisible);
   },
 
   removeSelectedPerson(event) {
@@ -674,7 +861,7 @@ Page({
       attendance: form.attendance.join("、"),
       participants: form.participants.join("、"),
       projectType: form.projectType,
-      equipmentDetails: equipmentTemplates[form.projectType] || []
+      equipmentDetails: this.getEquipmentTemplate(form.projectType)
     };
     if (this.data.isEditingTask) {
       await this.saveEditedOnsiteWork(item);
@@ -861,67 +1048,30 @@ Page({
     }
   },
 
-  openStartTask(event) {
-    const id = event.currentTarget.dataset.id;
-    const task = this.data.tasks.find((item) => item.id === id);
-    this.setData({
-      startPanelVisible: true,
-      startTaskId: id,
-      startAttendance: task && task.attendance ? task.attendance.split("、").filter(Boolean) : []
-    });
-    this.setTabBarHidden(true);
+  async openStartTask(event) {
+    const taskId = event.currentTarget.dataset.id;
+    await this.startTask(taskId);
   },
 
-  closeStartPanel() {
-    this.setData({
-      startPanelVisible: false,
-      startTaskId: "",
-      startAttendance: []
-    });
-    this.setTabBarHidden(false);
-  },
-
-  onStartAttendanceChange(event) {
-    this.setData({
-      startAttendance: event.detail.value
-    });
-  },
-
-  async confirmStartTask() {
-    if (!this.data.startAttendance.length) {
-      wx.showToast({ title: "请选择到岗到位人员", icon: "none" });
-      return;
-    }
-    const taskId = this.data.startTaskId;
-    const attendance = this.data.startAttendance.join("、");
+  async startTask(taskId) {
     const update = (item) => item.id === taskId
-      ? { ...item, status: "processing", progress: Math.max(item.progress || 0, 10), attendance }
+      ? { ...item, status: "processing", progress: Math.max(item.progress || 0, 10) }
       : item;
     const onsite = this.prepareOnsiteTasks((this.data.board.onsite || []).map(update));
     const board = { ...this.data.board, onsite };
     this.setData({
       board,
-      tasks: this.data.activeCategory === "onsite" ? this.getVisibleTasks(board, "onsite") : this.data.tasks,
-      startPanelVisible: false,
-      startTaskId: "",
-      startAttendance: []
+      tasks: this.data.activeCategory === "onsite" ? this.getVisibleTasks(board, "onsite") : this.data.tasks
     });
-    this.setTabBarHidden(false);
     const target = onsite.find((item) => item.id === taskId);
     if (target && target._id) {
       await this.updateCloudOnsiteWork(target._id, {
         status: "processing",
-        progress: target.progress,
-        attendance
+        progress: target.progress
       });
     } else {
       wx.setStorageSync("onsiteWorks", onsite.filter((work) => String(work.id).indexOf("ONSITE-") === 0));
     }
     wx.showToast({ title: "任务已启动", icon: "success" });
-    wx.showModal({
-      title: "提醒说明",
-      content: "后续接入订阅消息后，可在任务开始前一周向到岗到位人员推送微信提醒。",
-      showCancel: false
-    });
   }
 });

@@ -102,6 +102,26 @@
   margin-bottom: 18rpx;
 }
 
+.onsite-config-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.config-work-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 180rpx;
+  height: 58rpx;
+  margin: 0;
+  padding: 0;
+  border-radius: 8rpx;
+  color: #ffffff;
+  background: #1f5f54;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
 .filter-row {
   display: flex;
   gap: 10rpx;
@@ -150,7 +170,7 @@
 
 .task-meta {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 20rpx;
   margin-top: 18rpx;
   color: #6b7773;
@@ -165,6 +185,18 @@
   overflow-wrap: anywhere;
 }
 
+.risk-number {
+  font-weight: 900;
+}
+
+.risk-number.red {
+  color: #c0392b;
+}
+
+.risk-number.amber {
+  color: #b7791f;
+}
+
 .task-detail {
   display: grid;
   gap: 8rpx;
@@ -175,6 +207,12 @@
   background: #f4f7f6;
   font-size: 24rpx;
   line-height: 1.4;
+}
+
+.people-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18rpx;
 }
 
 .progress {
@@ -484,10 +522,127 @@
   overflow: hidden;
 }
 
+.config-panel {
+  max-height: 86vh;
+}
+
 .project-panel-body {
   max-height: calc(78vh - 92rpx);
   overflow-y: auto;
   padding: 24rpx 24rpx calc(80rpx + env(safe-area-inset-bottom));
+}
+
+.config-panel .project-panel-body {
+  max-height: calc(86vh - 92rpx);
+}
+
+.config-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 128rpx;
+  gap: 12rpx;
+}
+
+.config-add-row input,
+.project-panel-body .field input {
+  height: 76rpx;
+  padding: 0 18rpx;
+  border: 1rpx solid #d7e1de;
+  border-radius: 8rpx;
+  background: #ffffff;
+  font-size: 26rpx;
+}
+
+.config-add-row button,
+.config-section-title button,
+.config-equipment-head button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.config-add-row button,
+.config-section-title button {
+  color: #ffffff;
+  background: #1f5f54;
+}
+
+.config-project-tabs {
+  display: flex;
+  gap: 10rpx;
+  margin-bottom: 24rpx;
+  overflow-x: auto;
+}
+
+.config-project-tab {
+  flex: 0 0 auto;
+  max-width: 260rpx;
+  padding: 14rpx 18rpx;
+  border: 1rpx solid #d7e1de;
+  border-radius: 999rpx;
+  color: #40504b;
+  background: #ffffff;
+  font-size: 24rpx;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.config-project-tab.active {
+  border-color: #1f5f54;
+  color: #ffffff;
+  background: #1f5f54;
+}
+
+.config-section-title,
+.config-equipment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin: 18rpx 0 14rpx;
+  color: #17211e;
+  font-size: 27rpx;
+  font-weight: 900;
+}
+
+.config-section-title button {
+  width: 150rpx;
+  height: 58rpx;
+}
+
+.config-equipment-card {
+  display: grid;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+  padding: 18rpx;
+  border: 1rpx solid #d7e1de;
+  border-radius: 8rpx;
+  background: #fbfcfc;
+}
+
+.config-equipment-card input {
+  height: 72rpx;
+  padding: 0 18rpx;
+  border: 1rpx solid #d7e1de;
+  border-radius: 8rpx;
+  background: #ffffff;
+  font-size: 25rpx;
+}
+
+.config-equipment-head {
+  margin: 0;
+}
+
+.config-equipment-head button {
+  width: 108rpx;
+  height: 52rpx;
+  border: 1rpx solid #e0b4b4;
+  color: #b42318;
+  background: #fff7f7;
 }
 
 .project-list {
@@ -586,16 +741,6 @@
   display: grid;
   gap: 6rpx;
   min-width: 0;
-}
-
-.person-level {
-  color: #7a8782;
-  font-size: 22rpx;
-  font-weight: 700;
-}
-
-.person-row.checked .person-level {
-  color: #1f5f54;
 }
 
 .person-check {
@@ -731,15 +876,3 @@
   line-height: 1.5;
 }
 
-.person-option {
-  display: inline-flex;
-  align-items: center;
-  min-height: 56rpx;
-  margin: 0 12rpx 12rpx 0;
-  padding: 0 14rpx;
-  border: 1rpx solid #d7e1de;
-  border-radius: 999rpx;
-  color: #40504b;
-  background: #fbfcfc;
-  font-size: 24rpx;
-}

@@ -11,7 +11,7 @@
   </view>
 
   <view class="metrics">
-    <view class="metric card" wx:for="{{metrics}}" wx:key="label">
+    <view class="metric card" wx:for="{{metrics}}" wx:key="label" data-label="{{item.label}}" bindtap="goMetric">
       <view class="metric-value">{{item.value}}<text>{{item.unit}}</text></view>
       <view class="metric-label">{{item.label}}</view>
     </view>
@@ -27,11 +27,11 @@
     </view>
   </view>
 
-  <view class="section-title">
+  <view class="section-title" bindtap="goOnsiteTasks">
     <text>本周现场工作</text>
   </view>
   <view class="list">
-    <view class="application card" wx:for="{{onsiteWorks}}" wx:key="id">
+    <view class="application card" wx:for="{{onsiteWorks}}" wx:key="id" bindtap="goOnsiteTasks">
       <view class="application-main">
         <view class="application-type">{{item.department}}</view>
         <view class="application-title">{{item.title}}</view>

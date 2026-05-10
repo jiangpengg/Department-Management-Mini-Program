@@ -59,5 +59,17 @@ Page({
     wx.switchTab({
       url: "/pages/approval/approval"
     });
+  },
+
+  goMetric(event) {
+    if (event.currentTarget.dataset.label !== "现场工作") return;
+    this.goOnsiteTasks();
+  },
+
+  goOnsiteTasks() {
+    getApp().globalData.taskCategory = "onsite";
+    wx.switchTab({
+      url: "/pages/tasks/tasks"
+    });
   }
 });

@@ -334,8 +334,9 @@
 
 .new-role-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 150rpx;
+  grid-template-columns: minmax(0, 1fr) 128rpx;
   gap: 14rpx;
+  width: 100%;
   padding: 20rpx;
   min-width: 0;
   overflow: hidden;
@@ -343,15 +344,31 @@
 
 .new-role-card button {
   display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
   align-items: center;
   justify-content: center;
   height: 76rpx;
-  min-width: 0;
   border-radius: 8rpx;
   color: #ffffff;
   background: #1f5f54;
   font-size: 24rpx;
   font-weight: 900;
+  white-space: nowrap;
+}
+
+.new-role-card input {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 360px) {
+  .new-role-card {
+    grid-template-columns: 1fr;
+  }
 }
 
 .confirm-config-button {
