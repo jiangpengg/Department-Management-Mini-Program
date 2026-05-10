@@ -1,5 +1,5 @@
-const { departments, users } = require("../../utils/mock");
 const { ensureAuthorized } = require("../../utils/auth");
+const { loadOrgConfig } = require("../../utils/org-store");
 
 Page({
   data: {
@@ -7,12 +7,14 @@ Page({
     departments: []
   },
 
-  onLoad() {
+  async onLoad() {
     if (!ensureAuthorized()) return;
 
+    const orgConfig = await loadOrgConfig({ seed: false });
+    const users = orgConfig.users || [];
     this.setData({
       leaders: users.filter((item) => ["system_admin", "department_manager", "institute_leader"].includes(item.roleKey)),
-      departments: departments.map((department) => ({
+      departments: (orgConfig.departments || []).map((department) => ({
         ...department,
         members: users.filter((user) => user.department === department.name && user.authorized)
       }))

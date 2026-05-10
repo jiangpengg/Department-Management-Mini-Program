@@ -1,45 +1,44 @@
-const { departments, users } = require("../../utils/mock");
-const { ensureAuthorized, canManageSystem } = require("../../utils/auth");
+const { ensureAuthorized, canManageSystem, getCurrentUser } = require("../../utils/auth");
+const { loadOrgConfig, saveOrgConfig } = require("../../utils/org-store");
 
 Page({
   data: {
     departments: []
   },
 
-  onLoad() {
+  async onLoad() {
     if (!ensureAuthorized()) return;
     if (!canManageSystem()) {
       wx.showToast({ title: "无科室管理权限", icon: "none" });
       wx.switchTab({ url: "/pages/profile/profile" });
       return;
     }
-    this.setData({ departments: this.decorateDepartments(departments) });
+    this.orgConfig = await loadOrgConfig({ operator: (getCurrentUser() || {}).name || "" });
+    this.setData({ departments: this.decorateDepartments(this.orgConfig.departments) });
   },
 
   decorateDepartments(list) {
     return list.map((department) => ({
       ...department,
-      memberCount: users.filter((user) => user.department === department.name && user.authorized).length
+      memberCount: (this.orgConfig.users || []).filter((user) => user.department === department.name && user.authorized).length
     }));
   },
 
   addDepartment() {
     const index = this.data.departments.length + 1;
-    this.setData({
-      departments: [
-        ...this.data.departments,
-        {
-          id: `d${Date.now()}`,
-          name: `新增科室${index}`,
-          leader: "待设置",
-          reviewer: "待设置",
-          safetyOfficer: "待设置",
-          partyOfficer: "待设置",
-          memberCount: 0
-        }
-      ]
-    });
-    this.showDraftToast("已新增科室");
+    const departments = [
+      ...(this.orgConfig.departments || []),
+      {
+        id: `d${Date.now()}`,
+        name: `新增科室${index}`,
+        leader: "待设置",
+        reviewer: "待设置",
+        safetyOfficer: "待设置",
+        partyOfficer: "待设置",
+        memberCount: 0
+      }
+    ];
+    this.saveDepartments(departments, "已新增科室");
   },
 
   deleteDepartment(event) {
@@ -50,16 +49,19 @@ Page({
       wx.showToast({ title: "请先移出人员", icon: "none" });
       return;
     }
-    this.setData({
-      departments: this.data.departments.filter((item) => item.id !== id)
-    });
-    this.showDraftToast("已删除科室");
+    this.saveDepartments((this.orgConfig.departments || []).filter((item) => item.id !== id), "已删除科室");
   },
 
-  showDraftToast(title) {
-    wx.showToast({
-      title: `${title}，待接入云端保存`,
-      icon: "none"
+  saveDepartments(departments, toastTitle) {
+    this.orgConfig = { ...this.orgConfig, departments };
+    this.setData({ departments: this.decorateDepartments(departments) });
+    saveOrgConfig(this.orgConfig, (getCurrentUser() || {}).name || "").then((result) => {
+      wx.showToast({
+        title: result.ok ? toastTitle : `${toastTitle}，本地已暂存`,
+        icon: "none"
+      });
+    }).catch(() => {
+      wx.showToast({ title: `${toastTitle}，本地已暂存`, icon: "none" });
     });
   }
 });

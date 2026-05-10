@@ -1,5 +1,8 @@
 const { applicationTypes, roomSlots, meetingRooms, instruments, buildSealApprovalFlow, buildTaskBoard } = require("../../utils/mock");
-const { ensureAuthorized, getCurrentUser, hasCapability } = require("../../utils/auth");
+const { ensureAuthorized, getCurrentUser, hasCapability, canManageSystem } = require("../../utils/auth");
+const { loadInstrumentCatalog, saveInstrumentCatalog } = require("../../utils/instrument-store");
+
+const ONSITE_PROJECT_CONFIG_KEY = "onsiteProjectConfigs";
 
 const defaultForm = {
   title: "",
@@ -77,18 +80,39 @@ Page({
     instrumentIndex: 0,
     instrumentQuantity: "1",
     instrumentPurpose: "",
+    instrumentCatalog: instruments,
+    filteredInstrumentCatalog: instruments,
+    instrumentCatalogVisible: false,
+    instrumentCatalogSearch: "",
+    instrumentCatalogFormVisible: false,
+    instrumentCatalogEditingIndex: -1,
+    instrumentCatalogForm: {
+      code: "",
+      name: "",
+      model: "",
+      stock: "",
+      unit: "台",
+      location: "",
+      remark: ""
+    },
+    canEditInstrumentCatalog: false,
     instrumentFlow: [],
+    borrowHistory: [],
+    pendingReturnRecords: [],
+    instrumentDetailVisible: false,
+    instrumentDetailRecord: null,
     startedOnsiteTasks: [],
     startedTaskNames: [],
     startedTaskIndex: 0,
     selectedTaskEquipment: [],
+    onsiteProjectConfigs: [],
     meetingResult: null,
     meetingRecords: [],
     roomBookingRecords: [],
     submitting: false
   },
 
-  onLoad(options) {
+  async onLoad(options) {
     if (!ensureAuthorized()) return;
     this.initPickerDefaults();
     if (!hasCapability("apply")) {
@@ -101,6 +125,7 @@ Page({
       });
       return;
     }
+    await this.loadInstrumentCatalogData();
     if (options.type) {
       this.setActiveType(options.type);
     }
@@ -257,10 +282,187 @@ Page({
     });
   },
 
+  openInstrumentCatalog() {
+    this.setData({
+      instrumentCatalogVisible: true,
+      instrumentCatalogSearch: "",
+      filteredInstrumentCatalog: this.data.instrumentCatalog
+    });
+  },
+
+  closeInstrumentCatalog() {
+    this.setData({
+      instrumentCatalogVisible: false,
+      instrumentCatalogFormVisible: false,
+      instrumentCatalogEditingIndex: -1
+    });
+  },
+
+  onInstrumentCatalogSearch(event) {
+    const value = event.detail.value;
+    this.setData({
+      instrumentCatalogSearch: value,
+      filteredInstrumentCatalog: this.filterInstrumentCatalog(this.data.instrumentCatalog, value)
+    });
+  },
+
+  editInstrumentCatalogItem(event) {
+    if (!this.data.canEditInstrumentCatalog) {
+      wx.showToast({ title: "需仓库管理员或管理员修改", icon: "none" });
+      return;
+    }
+    const index = Number(event.currentTarget.dataset.index);
+    const item = this.data.filteredInstrumentCatalog[index];
+    const realIndex = this.data.instrumentCatalog.findIndex((catalogItem) => catalogItem.instrumentId === item.instrumentId);
+    this.setData({
+      instrumentCatalogFormVisible: true,
+      instrumentCatalogEditingIndex: realIndex,
+      instrumentCatalogForm: {
+        code: item.code || item.instrumentId || "",
+        name: item.name || "",
+        model: item.model || "",
+        stock: String(item.stock || ""),
+        unit: item.unit || "台",
+        location: item.location || "",
+        remark: item.remark || ""
+      }
+    });
+  },
+
+  addInstrumentCatalogItem() {
+    if (!this.data.canEditInstrumentCatalog) {
+      wx.showToast({ title: "需仓库管理员或管理员新增", icon: "none" });
+      return;
+    }
+    this.setData({
+      instrumentCatalogFormVisible: true,
+      instrumentCatalogEditingIndex: -1,
+      instrumentCatalogForm: {
+        code: "",
+        name: "",
+        model: "",
+        stock: "1",
+        unit: "台",
+        location: "",
+        remark: ""
+      }
+    });
+  },
+
+  onInstrumentCatalogFormInput(event) {
+    const field = event.currentTarget.dataset.field;
+    this.setData({ [`instrumentCatalogForm.${field}`]: event.detail.value });
+  },
+
+  async saveInstrumentCatalogForm() {
+    if (!this.data.canEditInstrumentCatalog) return;
+    const form = this.data.instrumentCatalogForm;
+    if (!form.name || !form.code) {
+      wx.showToast({ title: "请填写仪器名称和编号", icon: "none" });
+      return;
+    }
+    const record = {
+      id: form.code,
+      instrumentId: form.code,
+      code: form.code,
+      name: form.name,
+      model: form.model,
+      stock: Number(form.stock || 1),
+      available: Number(form.stock || 1),
+      unit: form.unit || "台",
+      location: form.location,
+      remark: form.remark
+    };
+    const catalog = this.data.instrumentCatalog.slice().map((item) => {
+      const { borrowedQuantity, currentUsers, currentUsersText, ...rest } = item;
+      return rest;
+    });
+    if (this.data.instrumentCatalogEditingIndex >= 0) {
+      catalog[this.data.instrumentCatalogEditingIndex] = record;
+    } else {
+      catalog.unshift(record);
+    }
+    const result = await saveInstrumentCatalog(catalog, (getCurrentUser() || {}).name || "");
+    wx.showToast({ title: result.ok ? "仪器清单已保存" : "已本地保存，云端同步失败", icon: result.ok ? "success" : "none" });
+    const decoratedCatalog = this.decorateInstrumentCatalog(catalog, this.data.instrumentFlow);
+    this.setData({
+      instrumentCatalog: decoratedCatalog,
+      filteredInstrumentCatalog: this.filterInstrumentCatalog(decoratedCatalog, this.data.instrumentCatalogSearch),
+      instrumentCatalogFormVisible: false,
+      instrumentCatalogEditingIndex: -1
+    });
+    await this.loadInstrumentCatalogData();
+  },
+
+  borrowCatalogInstrument() {
+    this.setActiveType("instrument");
+    this.closeInstrumentCatalog();
+  },
+
+  uploadInstrumentTable() {
+    if (!this.data.canEditInstrumentCatalog) {
+      wx.showToast({ title: "需仓库管理员或管理员导入", icon: "none" });
+      return;
+    }
+    wx.chooseMessageFile({
+      count: 1,
+      type: "file",
+      extension: ["csv", "txt", "tsv"],
+      success: (res) => {
+        const file = res.tempFiles && res.tempFiles[0];
+        if (!file) return;
+        wx.getFileSystemManager().readFile({
+          filePath: file.path,
+          encoding: "utf8",
+          success: async (readRes) => {
+            const imported = this.parseInstrumentTable(String(readRes.data || ""));
+            if (!imported.length) {
+              wx.showToast({ title: "未识别到仪器数据", icon: "none" });
+              return;
+            }
+            const result = await saveInstrumentCatalog(imported, (getCurrentUser() || {}).name || "");
+            wx.showToast({ title: result.ok ? "批量导入完成" : "已本地导入，云端同步失败", icon: result.ok ? "success" : "none" });
+            const decorated = this.decorateInstrumentCatalog(imported, this.data.instrumentFlow);
+            this.setData({
+              instrumentCatalog: decorated,
+              filteredInstrumentCatalog: this.filterInstrumentCatalog(decorated, this.data.instrumentCatalogSearch)
+            });
+          }
+        });
+      }
+    });
+  },
+
+  parseInstrumentTable(text) {
+    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (!lines.length) return [];
+    const delimiter = lines[0].indexOf("\t") >= 0 ? "\t" : ",";
+    const first = lines[0].split(delimiter).map((item) => item.trim());
+    const hasHeader = first.some((item) => ["编号", "仪器编号", "code", "name", "名称", "仪器名称"].includes(item));
+    const rows = hasHeader ? lines.slice(1) : lines;
+    return rows.map((line, index) => {
+      const cols = line.split(delimiter).map((item) => item.trim());
+      const code = cols[0] || `I${String(index + 1).padStart(3, "0")}`;
+      return {
+        id: code,
+        instrumentId: code,
+        code,
+        name: cols[1] || cols[0] || "未命名仪器",
+        model: cols[2] || "",
+        stock: Number(cols[3] || 1),
+        available: Number(cols[4] || cols[3] || 1),
+        unit: cols[5] || "台",
+        location: cols[6] || "",
+        remark: cols[7] || ""
+      };
+    });
+  },
+
   async loadStartedOnsiteTasks() {
     const user = getCurrentUser();
     const board = buildTaskBoard(user);
     const mockOnsite = board.onsite || [];
+    const onsiteProjectConfigs = await this.loadOnsiteProjectConfigs();
     const cloudOnsite = await this.loadCloudOnsiteWorks();
     const localOnsite = cloudOnsite.length ? [] : (wx.getStorageSync("onsiteWorks") || []);
     const flow = await this.loadInstrumentFlowRecords();
@@ -268,7 +470,7 @@ Page({
       .filter((record) => record.type === "出库申请" && record.status === "已出库")
       .map((record) => record.taskId);
     const taskMap = {};
-    mockOnsite.concat(localOnsite).forEach((item) => {
+    mockOnsite.concat(cloudOnsite, localOnsite).forEach((item) => {
       taskMap[item.id] = item;
     });
     const started = Object.keys(taskMap)
@@ -281,13 +483,31 @@ Page({
         return hasEquipment;
       });
     const selected = started[0] || null;
-    const selectedEquipment = this.buildSelectedTaskEquipment(selected, flow);
+    const selectedEquipment = this.buildSelectedTaskEquipment(selected, flow, onsiteProjectConfigs);
     this.setData({
+      onsiteProjectConfigs,
       startedOnsiteTasks: started,
       startedTaskNames: started.map((item) => `${item.title}（负责人：${item.owner}）`),
       startedTaskIndex: 0,
       selectedTaskEquipment: selectedEquipment
     });
+  },
+
+  async loadOnsiteProjectConfigs() {
+    const fallback = wx.getStorageSync(ONSITE_PROJECT_CONFIG_KEY) || [];
+    if (!wx.cloud) return fallback;
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "listAdminConfigs",
+        data: { keys: [ONSITE_PROJECT_CONFIG_KEY] }
+      });
+      const result = res.result || {};
+      const configs = result.ok && result.configs ? (result.configs[ONSITE_PROJECT_CONFIG_KEY] || fallback) : fallback;
+      wx.setStorageSync(ONSITE_PROJECT_CONFIG_KEY, configs);
+      return configs;
+    } catch (error) {
+      return fallback;
+    }
   },
 
   onStartedTaskChange(event) {
@@ -296,7 +516,7 @@ Page({
     const flow = this.data.instrumentFlow || [];
     this.setData({
       startedTaskIndex: index,
-      selectedTaskEquipment: this.buildSelectedTaskEquipment(task, flow)
+      selectedTaskEquipment: this.buildSelectedTaskEquipment(task, flow, this.data.onsiteProjectConfigs)
     });
   },
 
@@ -313,15 +533,115 @@ Page({
     }
   },
 
-  buildSelectedTaskEquipment(task, flow) {
+  buildSelectedTaskEquipment(task, flow, projectConfigs = this.data.onsiteProjectConfigs) {
     if (!task) return [];
     if (this.data.activeType === "return") {
       const borrowed = (flow || []).find((record) => record.taskId === task.id && record.type === "出库申请" && record.status === "已出库");
       if (borrowed && borrowed.equipmentDetails && borrowed.equipmentDetails.length) {
-        return borrowed.equipmentDetails.map((item) => ({ ...item, checked: false }));
+        return borrowed.equipmentDetails.map((item) => this.decorateSelectableEquipment(item));
       }
     }
-    return (task.equipmentDetails || []).map((item) => ({ ...item, checked: false }));
+    return this.getTaskConfiguredEquipment(task, projectConfigs).map((item) => this.decorateSelectableEquipment(item));
+  },
+
+  getTaskConfiguredEquipment(task, projectConfigs = []) {
+    const matchedConfig = (projectConfigs || []).find((item) => item.key === task.projectType);
+    if (matchedConfig && matchedConfig.equipment && matchedConfig.equipment.length) {
+      return matchedConfig.equipment.map((item) => ({ ...item }));
+    }
+    return (task.equipmentDetails || []).map((item) => ({ ...item }));
+  },
+
+  decorateSelectableEquipment(item) {
+    const requiredQuantity = Number(item.quantity) || 1;
+    const selectedInstruments = Array.isArray(item.selectedInstruments)
+      ? item.selectedInstruments
+      : (item.code || item.instrumentId ? [{
+        instrumentId: item.instrumentId,
+        code: item.code,
+        model: item.model,
+        name: item.name
+      }] : []);
+    return {
+      ...item,
+      rowKey: item.rowKey || `${item.name || item.instrumentId || "equipment"}-${Date.now()}-${Math.random()}`,
+      requiredQuantity,
+      quantity: requiredQuantity,
+      selectedInstruments,
+      displayName: this.formatEquipmentDisplay(item),
+      instrumentOptions: this.buildInstrumentOptionsForEquipment(item).map((instrument) => `${instrument.model || "无型号"} / ${instrument.code}`),
+      checked: selectedInstruments.length >= requiredQuantity
+    };
+  },
+
+  formatEquipmentDisplay(item = {}) {
+    const meta = [item.model, item.code || item.instrumentId].filter(Boolean).join(" / ");
+    return meta ? `${item.name}（${meta}）` : item.name;
+  },
+
+  onSelectedEquipmentInstrumentChange(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    const current = this.data.selectedTaskEquipment[index] || {};
+    const options = this.buildInstrumentOptionsForEquipment(current);
+    const instrument = options[Number(event.detail.value)];
+    if (!instrument) return;
+    const selected = current.selectedInstruments || [];
+    const instrumentKey = instrument.instrumentId || instrument.code;
+    const requiredQuantity = current.requiredQuantity || current.quantity || 1;
+    if (selected.some((item) => (item.instrumentId || item.code) === instrumentKey)) {
+      wx.showToast({ title: "该仪器已选择", icon: "none" });
+      return;
+    }
+    if (selected.length >= requiredQuantity) {
+      wx.showToast({ title: "已选够数量", icon: "none" });
+      return;
+    }
+    const selectedTaskEquipment = this.data.selectedTaskEquipment.map((item, itemIndex) => (
+      itemIndex === index
+        ? {
+          ...item,
+          instrumentId: instrument.instrumentId,
+          code: instrument.code,
+          model: instrument.model,
+          name: item.name,
+          selectedInstruments: selected.concat({
+            instrumentId: instrument.instrumentId,
+            code: instrument.code,
+            model: instrument.model,
+            name: instrument.name
+          }),
+          checked: selected.length + 1 >= requiredQuantity,
+          displayName: this.formatEquipmentDisplay(instrument),
+          instrumentOptions: this.buildInstrumentOptionsForEquipment(instrument).map((option) => `${option.model || "无型号"} / ${option.code}`)
+        }
+        : item
+    ));
+    this.setData({ selectedTaskEquipment });
+  },
+
+  removeSelectedInstrument(event) {
+    const equipmentIndex = Number(event.currentTarget.dataset.equipmentIndex);
+    const selectedIndex = Number(event.currentTarget.dataset.selectedIndex);
+    const selectedTaskEquipment = this.data.selectedTaskEquipment.map((item, itemIndex) => {
+      if (itemIndex !== equipmentIndex) return item;
+      const selectedInstruments = (item.selectedInstruments || []).filter((_, index) => index !== selectedIndex);
+      return {
+        ...item,
+        selectedInstruments,
+        checked: selectedInstruments.length >= (item.requiredQuantity || item.quantity || 1)
+      };
+    });
+    this.setData({ selectedTaskEquipment });
+  },
+
+  buildInstrumentOptionsForEquipment(equipment = {}) {
+    const sameName = (this.data.instrumentCatalog || []).filter((item) => item.name === equipment.name);
+    return sameName.length ? sameName : (this.data.instrumentCatalog || []);
+  },
+
+  getSelectedEquipmentOptions(index) {
+    return this.buildInstrumentOptionsForEquipment(this.data.selectedTaskEquipment[index] || [])
+      .map((item) => `${item.model || "无型号"} / ${item.code}`);
   },
 
   async loadInstrumentFlow() {
@@ -344,11 +664,122 @@ Page({
 
   setInstrumentFlowData(flow) {
     const canConfirm = this.canConfirmInventory();
+    const decoratedFlow = flow.map((record) => this.decorateInstrumentRecord(record, canConfirm));
+    const decoratedCatalog = this.decorateInstrumentCatalog(this.data.instrumentCatalog, decoratedFlow);
     this.setData({
-      instrumentFlow: flow.map((record) => ({
-        ...record,
-        canConfirm: canConfirm && record.status === "待仓库管理员确认"
-      }))
+      instrumentFlow: decoratedFlow,
+      borrowHistory: decoratedFlow.filter((record) => record.type === "出库申请"),
+      pendingReturnRecords: decoratedFlow.filter((record) => record.type === "归还申请" && record.canConfirm),
+      instrumentCatalog: decoratedCatalog,
+      filteredInstrumentCatalog: this.filterInstrumentCatalog(decoratedCatalog, this.data.instrumentCatalogSearch)
+    });
+  },
+
+  async loadInstrumentCatalogData() {
+    const catalog = await loadInstrumentCatalog({ operator: (getCurrentUser() || {}).name || "" });
+    const canEditInstrumentCatalog = await this.resolveInstrumentCatalogPermission();
+    const decoratedCatalog = this.decorateInstrumentCatalog(catalog, this.data.instrumentFlow);
+    this.setData({
+      instrumentCatalog: decoratedCatalog,
+      filteredInstrumentCatalog: decoratedCatalog,
+      instruments: decoratedCatalog,
+      instrumentNames: decoratedCatalog.map((item) => `${item.name}（${item.code}）`),
+      instrumentDisplayNames: decoratedCatalog.map((item) => `${item.name} / ${item.model || "无型号"} / ${item.code}`),
+      canEditInstrumentCatalog
+    });
+  },
+
+  decorateInstrumentCatalog(catalog, flow) {
+    const usageMap = this.buildInstrumentUsageMap(flow || []);
+    return (catalog || []).map((item) => {
+      const usage = usageMap[item.instrumentId] || usageMap[item.code] || usageMap[item.name] || { quantity: 0, users: [] };
+      return {
+        ...item,
+        borrowedQuantity: usage.quantity,
+        currentUsers: usage.users,
+        currentUsersText: usage.users.join("、")
+      };
+    });
+  },
+
+  buildInstrumentUsageMap(flow) {
+    const usageMap = {};
+    (flow || []).filter((record) => record.type === "出库申请" && record.status === "已出库").forEach((record) => {
+      (record.equipmentDetails || []).forEach((equipment) => {
+        const keys = [equipment.instrumentId, equipment.code, equipment.name].filter(Boolean);
+        keys.forEach((key) => {
+          if (!usageMap[key]) usageMap[key] = { quantity: 0, users: [] };
+          usageMap[key].quantity += Number(equipment.quantity || 1);
+          const user = record.borrower || record.applicant || "";
+          if (user && usageMap[key].users.indexOf(user) < 0) usageMap[key].users.push(user);
+        });
+      });
+    });
+    (flow || []).filter((record) => record.type === "归还申请" && record.status === "已入库").forEach((record) => {
+      (record.equipmentDetails || []).forEach((equipment) => {
+        const keys = [equipment.instrumentId, equipment.code, equipment.name].filter(Boolean);
+        keys.forEach((key) => {
+          if (!usageMap[key]) return;
+          usageMap[key].quantity = Math.max(0, usageMap[key].quantity - Number(equipment.quantity || 1));
+          if (usageMap[key].quantity === 0) usageMap[key].users = [];
+        });
+      });
+    });
+    return usageMap;
+  },
+
+  filterInstrumentCatalog(catalog, keyword) {
+    const text = String(keyword || "").trim();
+    return (catalog || []).filter((item) => (
+      !text || item.name.indexOf(text) >= 0 || item.code.indexOf(text) >= 0 || item.model.indexOf(text) >= 0
+    ));
+  },
+
+  async resolveInstrumentCatalogPermission() {
+    if (canManageSystem()) return true;
+    if (!wx.cloud) return false;
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "listAdminConfigs",
+        data: { keys: ["compositeRoles"] }
+      });
+      const result = res.result || {};
+      const roles = result.ok && result.configs ? (result.configs.compositeRoles || []) : [];
+      const warehouse = roles.find((item) => item.key === "warehouse" || item.name === "仓库管理员") || {};
+      return (warehouse.members || []).indexOf((getCurrentUser() || {}).name) >= 0;
+    } catch (error) {
+      return false;
+    }
+  },
+
+  decorateInstrumentRecord(record, canConfirm) {
+    const equipmentText = record.instrumentName || (record.equipmentDetails || [])
+      .map((item) => `${item.name}×${item.quantity || 1}`)
+      .join("、");
+    return {
+      ...record,
+      equipmentText,
+      taskText: record.taskTitle || record.purpose || "未关联现场工作",
+      borrowerText: record.borrower || "未记录",
+      timeText: record.time || record.createdAt || "未记录",
+      canConfirm: canConfirm && record.status === "待仓库管理员确认"
+    };
+  },
+
+  openInstrumentRecordDetail(event) {
+    const id = event.currentTarget.dataset.id;
+    const record = (this.data.instrumentFlow || []).find((item) => item.id === id || item._id === id);
+    if (!record) return;
+    this.setData({
+      instrumentDetailVisible: true,
+      instrumentDetailRecord: record
+    });
+  },
+
+  closeInstrumentRecordDetail() {
+    this.setData({
+      instrumentDetailVisible: false,
+      instrumentDetailRecord: null
     });
   },
 
@@ -443,6 +874,7 @@ Page({
   },
 
   toggleEquipmentCheck(event) {
+    if (this.data.activeType === "instrument") return;
     const index = Number(event.currentTarget.dataset.index);
     this.setData({
       selectedTaskEquipment: this.data.selectedTaskEquipment.map((item, itemIndex) => (
@@ -822,10 +1254,44 @@ Page({
     return `${date.getMonth() + 1}月${date.getDate()}日 ${weekNames[date.getDay()]}`;
   },
 
+  formatDateTimeText(date) {
+    return `${formatDate(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  },
+
+  buildBorrowEquipmentDetails() {
+    const details = [];
+    const incomplete = (this.data.selectedTaskEquipment || []).find((item) => (
+      (item.selectedInstruments || []).length < (item.requiredQuantity || item.quantity || 1)
+    ));
+    if (incomplete) {
+      wx.showToast({ title: "请按数量选够仪器", icon: "none" });
+      return [];
+    }
+    (this.data.selectedTaskEquipment || []).forEach((item) => {
+      (item.selectedInstruments || []).forEach((instrument) => {
+        details.push({
+          ...item,
+          instrumentId: instrument.instrumentId,
+          code: instrument.code,
+          model: instrument.model,
+          name: instrument.name || item.name,
+          displayName: this.formatEquipmentDisplay(instrument),
+          quantity: 1,
+          requiredQuantity: 1,
+          selectedInstruments: [instrument],
+          checked: true
+        });
+      });
+    });
+    return details;
+  },
+
   async submitApply() {
     if (this.data.activeType === "instrument" || this.data.activeType === "return") {
       const task = this.data.startedOnsiteTasks[this.data.startedTaskIndex];
-      const checkedEquipment = this.data.selectedTaskEquipment.filter((item) => item.checked);
+      const checkedEquipment = this.data.activeType === "instrument"
+        ? this.buildBorrowEquipmentDetails()
+        : this.data.selectedTaskEquipment.filter((item) => item.checked);
       if (!task) {
         wx.showToast({ title: "请选择已启动任务", icon: "none" });
         return;
@@ -839,13 +1305,19 @@ Page({
         type: this.data.activeType === "instrument" ? "出库申请" : "归还申请",
         taskId: task.id,
         taskTitle: task.title,
-        instrumentName: checkedEquipment.map((item) => `${item.name}×${item.quantity}`).join("、"),
+        instrumentName: checkedEquipment.map((item) => `${this.formatEquipmentDisplay(item)}×${item.quantity}`).join("、"),
         equipmentDetails: checkedEquipment,
         quantity: checkedEquipment.reduce((total, item) => total + Number(item.quantity || 1), 0),
         purpose: task.title,
         borrower: getCurrentUser().name,
-        time: this.data.todayDate,
-        status: "待仓库管理员确认"
+        time: this.formatDateTimeText(new Date()),
+        status: "待审批",
+        approvalRequired: true,
+        approvalStatus: "pending",
+        approvalFlow: [
+          { key: "instrument_admin", name: "仪器管理员审批", role: "仪器管理员" }
+        ],
+        currentStepIndex: 0
       };
       const cloudId = await this.createCloudInstrumentFlow(record);
       const savedRecord = cloudId ? { ...record, _id: cloudId } : record;
@@ -855,7 +1327,10 @@ Page({
       } else {
         this.saveInstrumentFlow(nextFlow);
       }
+      const updatedCatalog = this.decorateInstrumentCatalog(this.data.instrumentCatalog, nextFlow.map((record) => this.decorateInstrumentRecord(record, this.canConfirmInventory())));
       this.setData({
+        instrumentCatalog: updatedCatalog,
+        filteredInstrumentCatalog: this.filterInstrumentCatalog(updatedCatalog, this.data.instrumentCatalogSearch),
         selectedTaskEquipment: this.data.selectedTaskEquipment.map((item) => ({ ...item, checked: false })),
         form: { ...defaultForm }
       });

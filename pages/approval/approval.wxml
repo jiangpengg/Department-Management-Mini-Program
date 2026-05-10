@@ -1,4 +1,4 @@
-<view class="page">
+﻿<view class="page">
   <view class="filter card cols-{{filters.length}}">
     <view wx:for="{{filters}}" wx:key="key" class="filter-item {{activeFilter === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="switchFilter">
       {{item.name}}
@@ -15,18 +15,40 @@
         <status-pill text="{{item.statusText}}" tone="{{item.statusTone}}" />
       </view>
       <view class="detail">{{item.detail}}</view>
+      <view class="instrument-detail-link" wx:if="{{item.source === 'instrument'}}" data-id="{{item.id || item._id}}" catchtap="openInstrumentDetail">
+        &#x67E5;&#x770B;&#x4EEA;&#x5668;&#x501F;&#x7528;&#x660E;&#x7EC6;
+      </view>
+      <view class="change-box" wx:if="{{item.changeLines && item.changeLines.length}}">
+        <view class="change-line" wx:for="{{item.changeLines}}" wx:key="*this">{{item}}</view>
+      </view>
       <view class="flow-line" wx:if="{{item.currentStepText}}">当前节点：{{item.currentStepText}}</view>
-      <view class="flow-line muted-flow" wx:if="{{item.flowText}}">{{item.flowText}}</view>
       <view class="meta">
         <text>申请人：{{item.applicant}}</text>
         <text>{{item.time}}</text>
       </view>
       <view class="actions" wx:if="{{item.status === 'pending' && item.canReview}}">
-        <button class="ghost-button" data-id="{{item.id}}" data-action="reject" bindtap="handleApproval">驳回</button>
-        <button class="primary-button" data-id="{{item.id}}" data-action="approve" bindtap="handleApproval">通过</button>
+        <button class="ghost-button" wx:if="{{!item.needsInventoryConfirm}}" data-id="{{item.id}}" data-action="reject" bindtap="handleApproval">驳回</button>
+        <button class="primary-button" data-id="{{item.id}}" data-action="approve" bindtap="handleApproval">{{item.approveText || '通过'}}</button>
       </view>
     </view>
   </view>
 
   <view class="empty" wx:if="{{visibleApplications.length === 0}}">暂无相关审批</view>
+
+  <view class="detail-mask" wx:if="{{instrumentDetailVisible}}" catchtap="closeInstrumentDetail">
+    <view class="detail-panel" catchtap="noop">
+      <view class="detail-head">
+        <view class="detail-title">&#x4EEA;&#x5668;&#x501F;&#x7528;&#x660E;&#x7EC6;</view>
+        <view class="detail-close" bindtap="closeInstrumentDetail">×</view>
+      </view>
+      <view class="detail-line">&#x73B0;&#x573A;&#x5DE5;&#x4F5C;&#xFF1A;{{instrumentDetailRecord.title}}</view>
+      <view class="detail-line">&#x7533;&#x8BF7;&#x4EBA;&#xFF1A;{{instrumentDetailRecord.applicant}}</view>
+      <view class="detail-line">&#x7533;&#x8BF7;&#x65F6;&#x95F4;&#xFF1A;{{instrumentDetailRecord.time}}</view>
+      <view class="detail-subtitle">&#x4EEA;&#x5668;&#x6E05;&#x5355;</view>
+      <view class="detail-equipment" wx:for="{{instrumentDetailRecord.equipmentLines}}" wx:key="*this">{{item}}</view>
+      <view class="empty small" wx:if="{{!instrumentDetailRecord.equipmentLines || instrumentDetailRecord.equipmentLines.length === 0}}">
+        &#x6682;&#x65E0;&#x4EEA;&#x5668;&#x660E;&#x7EC6;
+      </view>
+    </view>
+  </view>
 </view>

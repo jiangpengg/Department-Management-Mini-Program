@@ -1,5 +1,6 @@
-const { departments, users, approvalFlows, meetingRooms } = require("../../utils/mock");
+const { approvalFlows, meetingRooms } = require("../../utils/mock");
 const { ensureAuthorized, getCurrentUser, canManageSystem, canManageDepartment, getManageScope } = require("../../utils/auth");
+const { loadOrgConfig } = require("../../utils/org-store");
 
 const ATTENDANCE_LEVEL_KEY = "attendanceLevelOverrides";
 const RISK_CONFIG_KEY = "riskLevelPeopleConfig";
@@ -59,12 +60,14 @@ Page({
 
     const scope = getManageScope();
     const currentUser = getCurrentUser();
+    const orgConfig = await loadOrgConfig({ operator: currentUser.name || "" });
+    this.orgConfig = orgConfig;
     const visibleUsers = scope === "global"
-      ? users
-      : users.filter((item) => item.department === currentUser.department);
+      ? orgConfig.users
+      : orgConfig.users.filter((item) => item.department === currentUser.department);
     const visibleDepartments = scope === "global"
-      ? departments
-      : departments.filter((item) => item.name === currentUser.department);
+      ? orgConfig.departments
+      : orgConfig.departments.filter((item) => item.name === currentUser.department);
     const peopleNames = visibleUsers.filter((item) => item.authorized).map((item) => item.name);
     const attendanceLevels = await this.loadAttendanceLevels();
     const riskLevelConfigs = await this.loadRiskLevelConfigs(attendanceLevels, peopleNames);
@@ -73,7 +76,7 @@ Page({
     this.setData({
       scope,
       canGlobalManage: canManageSystem(),
-      departments: this.decorateDepartments(visibleDepartments, users),
+      departments: this.decorateDepartments(visibleDepartments, orgConfig.users),
       users: this.decorateUsers(visibleUsers),
       peopleNames,
       riskLevelConfigs,
@@ -118,6 +121,20 @@ Page({
 
   async loadRiskLevelConfigs(attendanceLevels, allowedNames) {
     const cached = wx.getStorageSync(RISK_CONFIG_KEY);
+    if (wx.cloud) {
+      try {
+        const res = await wx.cloud.callFunction({
+          name: "listAdminConfigs",
+          data: { keys: ["riskLevelPeople"] }
+        });
+        const result = res.result || {};
+        const remote = result.ok && result.configs ? result.configs.riskLevelPeople : null;
+        if (remote && remote.length) {
+          wx.setStorageSync(RISK_CONFIG_KEY, remote);
+          return this.normalizeRiskConfig(remote, allowedNames);
+        }
+      } catch (error) {}
+    }
     if (cached && cached.length) {
       return this.normalizeRiskConfig(cached, allowedNames);
     }
@@ -126,7 +143,7 @@ Page({
       members: []
     }));
     Object.keys(attendanceLevels || {}).forEach((userId) => {
-      const person = users.find((item) => item.id === userId);
+      const person = (this.orgConfig.users || []).find((item) => item.id === userId);
       const level = attendanceLevels[userId];
       const target = byLevel.find((item) => item.level === String(level));
       if (person && target && allowedNames.indexOf(person.name) >= 0) {
@@ -235,7 +252,7 @@ Page({
     const levelMap = {};
     this.data.riskLevelConfigs.forEach((config) => {
       config.members.forEach((name) => {
-        const person = users.find((item) => item.name === name);
+        const person = (this.orgConfig.users || []).find((item) => item.name === name);
         if (person) levelMap[person.id] = config.level;
       });
     });
@@ -251,7 +268,7 @@ Page({
         }
       }).catch(() => {});
       this.data.peopleNames.forEach((name) => {
-        const person = users.find((item) => item.name === name) || {};
+        const person = (this.orgConfig.users || []).find((item) => item.name === name) || {};
         if (!person.id) return;
         wx.cloud.callFunction({
           name: "updateAttendanceLevel",

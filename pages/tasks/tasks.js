@@ -1,5 +1,7 @@
-const { buildTaskBoard, getStatusMeta, instruments, users, equipmentTemplates } = require("../../utils/mock");
-const { ensureAuthorized } = require("../../utils/auth");
+const { buildTaskBoard, getStatusMeta, equipmentTemplates } = require("../../utils/mock");
+const { ensureAuthorized, getCurrentUser, canManageSystem } = require("../../utils/auth");
+const { loadOrgConfig } = require("../../utils/org-store");
+const { loadInstrumentCatalog } = require("../../utils/instrument-store");
 
 const ATTENDANCE_LEVEL_KEY = "attendanceLevelOverrides";
 const ONSITE_PROJECT_CONFIG_KEY = "onsiteProjectConfigs";
@@ -60,8 +62,59 @@ function formatShortDateRange(start, end) {
   return startText === endText ? startText : `${startText} 至 ${endText}`;
 }
 
+function normalizeDateValue(value) {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const match = value.match(/(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})/);
+    if (!match) return "";
+    return `${match[1]}-${pad(match[2])}-${pad(String(match[3]).replace("日", ""))}`;
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return formatDate(value);
+  }
+  return "";
+}
+
 function getRiskTone(value) {
   return Number(value) <= 3 ? "red" : "amber";
+}
+
+function normalizeConfigEquipment(list) {
+  return (list || []).map((equipment) => ({
+    ...equipment,
+    quantity: Number(equipment.quantity) || 1
+  }));
+}
+
+function formatConfigEquipmentLine(equipment = {}) {
+  return `${equipment.name || "未命名仪器"} × ${Number(equipment.quantity) || 1}`;
+}
+
+function formatConfigEquipmentList(list = []) {
+  return normalizeConfigEquipment(list).map(formatConfigEquipmentLine).join("、") || "未配置仪器";
+}
+
+function buildConfigChangeLines(actionType, previousProject = null, submittedProject = {}) {
+  const projectName = submittedProject.name || (previousProject && previousProject.name) || "未命名试验项目";
+  if (actionType === "add") {
+    return [
+      `新增项目：${projectName}`,
+      `仪器清单：${formatConfigEquipmentList(submittedProject.equipment)}`
+    ];
+  }
+  return [
+    `修改项目：${projectName}`,
+    `修改前：${formatConfigEquipmentList((previousProject || {}).equipment)}`,
+    `修改后：${formatConfigEquipmentList(submittedProject.equipment)}`
+  ];
+}
+
+function getOnsiteConfigActionType(record = {}) {
+  if (record.actionType) return record.actionType;
+  const title = record.title || "";
+  if (title.indexOf("新增") >= 0) return "add";
+  if (title.indexOf("修改") >= 0) return "edit";
+  return "";
 }
 
 const onsiteStatusMeta = {
@@ -105,11 +158,13 @@ Page({
     ],
     onsiteOwnerFilter: "all",
     onsiteTimeFilters: [
+      { key: "history", name: "历史工作" },
       { key: "thisWeek", name: "本周" },
       { key: "nextWeek", name: "下周" },
       { key: "thisMonth", name: "本月" }
     ],
     onsiteTimeFilter: "thisWeek",
+    onsiteTimeIndex: 1,
     board: {},
     tasks: [],
     summaries: [],
@@ -129,7 +184,12 @@ Page({
       participantsText: "",
       projectType: "temperature"
     },
-    instruments,
+    instruments: [],
+    instrumentCatalog: [],
+    canDeleteProjectConfig: false,
+    canEditInstrumentConfig: false,
+    activeEquipmentIndex: -1,
+    equipmentSuggestions: [],
     riskLevels: ["1", "2", "3", "4", "5"],
     riskIndex: 0,
     projectConfigs: DEFAULT_PROJECT_CONFIGS,
@@ -140,12 +200,15 @@ Page({
     projectSearch: "",
     filteredProjects: [],
     configPanelVisible: false,
+    configMode: "edit",
     configProjectIndex: 0,
     configProjectName: "",
     configEquipmentList: [],
-    newProjectName: "",
+    configProjectPickerVisible: false,
+    configProjectSearch: "",
+    filteredConfigProjects: [],
     attendanceLevels: {},
-    peopleNames: users.filter((item) => item.authorized).map((item) => item.name),
+    peopleNames: [],
     ownerSuggestions: [],
     ownerIndex: 0,
     personPanelVisible: false,
@@ -168,10 +231,37 @@ Page({
 
   async onLoad() {
     if (!ensureAuthorized()) return;
-    this.loadProjectConfigs();
+    this.orgConfig = await loadOrgConfig({ seed: false });
+    const instrumentCatalog = await loadInstrumentCatalog({ operator: (getCurrentUser() || {}).name || "" });
+    const canEditInstrumentConfig = await this.resolveInstrumentEditPermission();
+    await this.loadProjectConfigs();
     const attendanceLevels = await this.loadAttendanceLevels();
-    this.setData({ attendanceLevels });
+    this.setData({
+      attendanceLevels,
+      peopleNames: (this.orgConfig.users || []).filter((item) => item.authorized).map((item) => item.name),
+      instruments: instrumentCatalog,
+      instrumentCatalog,
+      canDeleteProjectConfig: canManageSystem(),
+      canEditInstrumentConfig
+    });
     this.loadBoard();
+  },
+
+  async resolveInstrumentEditPermission() {
+    if (canManageSystem()) return true;
+    if (!wx.cloud) return false;
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "listAdminConfigs",
+        data: { keys: ["compositeRoles"] }
+      });
+      const result = res.result || {};
+      const roles = result.ok && result.configs ? (result.configs.compositeRoles || []) : [];
+      const warehouse = roles.find((item) => item.key === "warehouse" || item.name === "仓库管理员") || {};
+      return (warehouse.members || []).indexOf((getCurrentUser() || {}).name) >= 0;
+    } catch (error) {
+      return false;
+    }
   },
 
   async loadAttendanceLevels() {
@@ -190,10 +280,30 @@ Page({
     }
   },
 
-  loadProjectConfigs() {
-    const stored = wx.getStorageSync(ONSITE_PROJECT_CONFIG_KEY);
-    const projectConfigs = Array.isArray(stored) && stored.length ? stored : DEFAULT_PROJECT_CONFIGS;
-    this.applyProjectConfigs(projectConfigs);
+  async loadProjectConfigs() {
+    const fallback = wx.getStorageSync(ONSITE_PROJECT_CONFIG_KEY) || DEFAULT_PROJECT_CONFIGS;
+    if (!wx.cloud) {
+      this.applyProjectConfigs(fallback);
+      return fallback;
+    }
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "listAdminConfigs",
+        data: { keys: [ONSITE_PROJECT_CONFIG_KEY] }
+      });
+      const result = res.result || {};
+      const remote = result.ok && result.configs ? result.configs[ONSITE_PROJECT_CONFIG_KEY] : null;
+      const projectConfigs = remote || fallback;
+      wx.setStorageSync(ONSITE_PROJECT_CONFIG_KEY, projectConfigs);
+      if (!remote) {
+        this.saveProjectConfigs(projectConfigs, 0);
+      }
+      this.applyProjectConfigs(projectConfigs);
+      return projectConfigs;
+    } catch (error) {
+      this.applyProjectConfigs(fallback);
+      return fallback;
+    }
   },
 
   applyProjectConfigs(projectConfigs, selectedIndex = this.data.configProjectIndex || 0) {
@@ -215,9 +325,24 @@ Page({
     });
   },
 
-  saveProjectConfigs(projectConfigs, selectedIndex) {
+  async saveProjectConfigs(projectConfigs, selectedIndex) {
     wx.setStorageSync(ONSITE_PROJECT_CONFIG_KEY, projectConfigs);
     this.applyProjectConfigs(projectConfigs, selectedIndex);
+    if (!wx.cloud) return true;
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "updateAdminConfig",
+        data: {
+          key: ONSITE_PROJECT_CONFIG_KEY,
+          value: projectConfigs,
+          operator: (getApp().globalData.user || {}).name || ""
+        }
+      });
+      const result = res.result || {};
+      return Boolean(result.ok);
+    } catch (error) {
+      return false;
+    }
   },
 
   getEquipmentTemplate(projectType) {
@@ -279,7 +404,8 @@ Page({
     return list.map((item) => {
       const normalizedStatus = item.status === "pending" ? "waiting" : item.status;
       const meta = getOnsiteStatusMeta(normalizedStatus);
-      const canOwnTask = item.owner === user.name;
+      const capabilities = user.capabilities || [];
+      const canOwnTask = item.owner === user.name || capabilities.includes("task_manage") || capabilities.includes("global_admin");
       return {
         ...item,
         status: normalizedStatus,
@@ -310,8 +436,9 @@ Page({
       if (item.status === "deleted" || item.visibleToAll === false) return false;
       if (this.data.onsiteOwnerFilter === "mine" && item.owner !== user.name) return false;
       if (!range) return true;
-      const start = item.date || item.deadline;
-      const end = item.endDate || item.deadline || start;
+      const start = normalizeDateValue(item.date || item.deadline);
+      const end = normalizeDateValue(item.endDate || item.deadline || item.date);
+      if (!start) return true;
       return start < range.end && end >= range.start;
     });
   },
@@ -333,7 +460,7 @@ Page({
     if (this.getTabBar) {
       this.getTabBar().setData({ selected: 2, hidden: false });
     }
-    this.loadProjectConfigs();
+    await this.loadProjectConfigs();
     const attendanceLevels = await this.loadAttendanceLevels();
     this.setData({ attendanceLevels });
     this.loadBoard();
@@ -358,8 +485,13 @@ Page({
   },
 
   switchOnsiteTimeFilter(event) {
+    const index = event.detail && event.detail.value !== undefined
+      ? Number(event.detail.value)
+      : Math.max(0, this.data.onsiteTimeFilters.findIndex((item) => item.key === event.currentTarget.dataset.key));
+    const target = this.data.onsiteTimeFilters[index] || this.data.onsiteTimeFilters[0];
     this.setData({
-      onsiteTimeFilter: event.currentTarget.dataset.key
+      onsiteTimeFilter: target.key,
+      onsiteTimeIndex: index
     }, () => {
       this.setData({
         tasks: this.getVisibleTasks(this.data.board, this.data.activeCategory)
@@ -367,10 +499,13 @@ Page({
     });
   },
 
-  openWorkConfigPanel() {
+  async openWorkConfigPanel() {
+    const instrumentCatalog = await loadInstrumentCatalog({ operator: (getCurrentUser() || {}).name || "" });
     this.setData({
       configPanelVisible: true,
-      newProjectName: ""
+      configMode: "edit",
+      instruments: instrumentCatalog,
+      instrumentCatalog
     });
     this.applyProjectConfigs(this.data.projectConfigs, this.data.configProjectIndex || 0);
     this.setTabBarHidden(true);
@@ -378,8 +513,7 @@ Page({
 
   closeWorkConfigPanel() {
     this.setData({
-      configPanelVisible: false,
-      newProjectName: ""
+      configPanelVisible: false
     });
     this.setTabBarHidden(this.data.createPanelVisible);
   },
@@ -389,58 +523,214 @@ Page({
     this.applyProjectConfigs(this.data.projectConfigs, index);
   },
 
+  openConfigProjectPicker() {
+    this.setData({
+      configProjectPickerVisible: true,
+      configProjectSearch: "",
+      filteredConfigProjects: this.buildConfigProjectOptions("")
+    });
+  },
+
+  closeConfigProjectPicker() {
+    this.setData({
+      configProjectPickerVisible: false,
+      configProjectSearch: ""
+    });
+  },
+
+  onConfigProjectSearch(event) {
+    const value = event.detail.value;
+    this.setData({
+      configProjectSearch: value,
+      filteredConfigProjects: this.buildConfigProjectOptions(value)
+    });
+  },
+
+  buildConfigProjectOptions(keyword) {
+    const text = String(keyword || "").trim();
+    return this.data.projectConfigs
+      .map((item, index) => ({ ...item, index }))
+      .filter((item) => !text || item.name.indexOf(text) >= 0);
+  },
+
+  confirmConfigProjectSelection(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    this.applyProjectConfigs(this.data.projectConfigs, index);
+    this.closeConfigProjectPicker();
+  },
+
+  async switchConfigMode(event) {
+    const mode = event.currentTarget.dataset.mode;
+    if (mode === "add") {
+      const draft = await this.loadRejectedOnsiteConfigDraft();
+      this.setData({
+        configMode: "add",
+        configProjectName: draft.name || "",
+        configEquipmentList: draft.equipment || []
+      });
+      return;
+    }
+    this.setData({ configMode: "edit" });
+    this.applyProjectConfigs(this.data.projectConfigs, this.data.configProjectIndex || 0);
+  },
+
   onConfigProjectNameInput(event) {
     this.setData({ configProjectName: event.detail.value });
   },
 
-  onNewProjectNameInput(event) {
-    this.setData({ newProjectName: event.detail.value });
-  },
-
-  addProjectConfig() {
-    const name = this.data.newProjectName.trim();
+  async saveCurrentProjectConfig() {
+    const name = this.data.configMode === "edit"
+      ? ((this.data.projectConfigs[this.data.configProjectIndex] || {}).name || "").trim()
+      : this.data.configProjectName.trim();
     if (!name) {
       wx.showToast({ title: "请输入试验项目名称", icon: "none" });
       return;
     }
-    const projectConfigs = this.data.projectConfigs.concat({
-      key: `custom-${Date.now()}`,
-      name,
-      equipment: []
-    });
-    this.saveProjectConfigs(projectConfigs, projectConfigs.length - 1);
-    this.setData({ newProjectName: "" });
-  },
-
-  saveCurrentProjectConfig() {
+    if (this.data.configMode === "add") {
+      const newProject = {
+        key: `custom-${Date.now()}`,
+        name,
+        equipment: normalizeConfigEquipment(this.data.configEquipmentList)
+      };
+      const projectConfigs = this.data.projectConfigs.concat({
+        ...newProject
+      });
+      await this.submitOnsiteConfigApproval(projectConfigs, "新增试验项目", {
+        actionType: "add",
+        projectKey: newProject.key,
+        projectName: newProject.name,
+        previousProject: null,
+        submittedProject: newProject
+      });
+      return;
+    }
     const index = this.data.configProjectIndex;
-    const name = this.data.configProjectName.trim();
-    if (!name) {
-      wx.showToast({ title: "请输入试验项目名称", icon: "none" });
-      return;
-    }
+    const currentProject = this.data.projectConfigs[index] || {};
+    const updatedProject = {
+      ...currentProject,
+      name,
+      equipment: normalizeConfigEquipment(this.data.configEquipmentList)
+    };
     const projectConfigs = this.data.projectConfigs.map((item, itemIndex) => (
       itemIndex === index
-        ? { ...item, name, equipment: this.data.configEquipmentList.map((equipment) => ({ ...equipment })) }
+        ? updatedProject
         : item
     ));
-    this.saveProjectConfigs(projectConfigs, index);
-    wx.showToast({ title: "配置已保存", icon: "success" });
+    await this.submitOnsiteConfigApproval(projectConfigs, "修改试验项目仪器", {
+      actionType: "edit",
+      projectKey: updatedProject.key,
+      projectName: updatedProject.name,
+      previousProject: currentProject,
+      submittedProject: updatedProject
+    });
   },
 
-  deleteCurrentProjectConfig() {
+  async submitOnsiteConfigApproval(projectConfigs, actionText, meta = {}) {
+    if (!wx.cloud) {
+      wx.showToast({ title: "云端不可用，无法提交确认", icon: "none" });
+      return;
+    }
+    const user = getCurrentUser() || {};
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "listAdminConfigs",
+        data: { keys: ["onsiteConfigApprovals"] }
+      });
+      const result = res.result || {};
+      const records = result.ok && result.configs ? (result.configs.onsiteConfigApprovals || []) : [];
+      const nextRecords = records.filter((item) => !(
+        item.source === "onsiteConfig"
+        && item.applicant === (user.name || "")
+        && getOnsiteConfigActionType(item) === meta.actionType
+        && (meta.actionType === "add" || !item.projectKey || item.projectKey === meta.projectKey)
+        && (item.status === "pending" || item.status === "rejected")
+      ));
+      const record = {
+        id: `ONSITE-CONFIG-${Date.now()}`,
+        source: "onsiteConfig",
+        type: "现场试验配置",
+        title: actionText,
+        actionType: meta.actionType || this.data.configMode,
+        projectKey: meta.projectKey || "",
+        projectName: meta.projectName || "",
+        applicant: user.name || "",
+        applicantId: user.id || "",
+        department: user.department || "",
+        time: formatDate(new Date()),
+        status: "pending",
+        approvalRequired: true,
+        detail: `${actionText}：${this.data.configMode === "edit" ? ((this.data.projectConfigs[this.data.configProjectIndex] || {}).name || "") : this.data.configProjectName}`,
+        approvalFlow: [{ key: "instrument_admin", name: "仓库管理员确认", role: "仓库管理员" }],
+        currentStepIndex: 0,
+        previousProject: meta.previousProject || null,
+        submittedProject: meta.submittedProject || null,
+        changeLines: buildConfigChangeLines(
+          meta.actionType || this.data.configMode,
+          meta.previousProject || null,
+          meta.submittedProject || {}
+        ),
+        projectConfigs
+      };
+      const saveRes = await wx.cloud.callFunction({
+        name: "updateAdminConfig",
+        data: {
+          key: "onsiteConfigApprovals",
+          value: [record, ...nextRecords],
+          operator: user.name || ""
+        }
+      });
+      const saveResult = saveRes.result || {};
+      wx.showToast({ title: saveResult.ok ? "已提交配置确认" : "提交失败", icon: saveResult.ok ? "success" : "none" });
+      if (saveResult.ok) this.closeWorkConfigPanel();
+    } catch (error) {
+      wx.showToast({ title: "提交确认失败", icon: "none" });
+    }
+  },
+
+  async loadRejectedOnsiteConfigDraft() {
+    const empty = { name: "", equipment: [] };
+    if (!wx.cloud) return empty;
+    const user = getCurrentUser() || {};
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "listAdminConfigs",
+        data: { keys: ["onsiteConfigApprovals"] }
+      });
+      const result = res.result || {};
+      const records = result.ok && result.configs ? (result.configs.onsiteConfigApprovals || []) : [];
+      const draft = records.find((item) => (
+        item.source === "onsiteConfig"
+        && getOnsiteConfigActionType(item) === "add"
+        && item.status === "rejected"
+        && item.applicant === (user.name || "")
+      ));
+      if (!draft) return empty;
+      const project = draft.submittedProject
+        || ((draft.projectConfigs || []).find((item) => item.key === draft.projectKey) || {});
+      return {
+        name: project.name || draft.projectName || "",
+        equipment: (project.equipment || []).map((item) => ({ ...item }))
+      };
+    } catch (error) {
+      return empty;
+    }
+  },
+
+  async deleteCurrentProjectConfig() {
     if (this.data.projectConfigs.length <= 1) {
       wx.showToast({ title: "至少保留一个试验项目", icon: "none" });
       return;
     }
     const index = this.data.configProjectIndex;
     const projectConfigs = this.data.projectConfigs.filter((_, itemIndex) => itemIndex !== index);
-    this.saveProjectConfigs(projectConfigs, Math.max(0, index - 1));
+    const saved = await this.saveProjectConfigs(projectConfigs, Math.max(0, index - 1));
+    wx.showToast({ title: saved ? "试验项目已删除" : "已本地删除，云端同步失败", icon: saved ? "success" : "none" });
   },
 
   addConfigEquipment() {
     const configEquipmentList = this.data.configEquipmentList.concat({
       instrumentId: `custom-instrument-${Date.now()}`,
+      code: "",
       name: "",
       quantity: 1,
       purpose: ""
@@ -453,9 +743,52 @@ Page({
     const field = event.currentTarget.dataset.field;
     const value = event.detail.value;
     const configEquipmentList = this.data.configEquipmentList.map((item, itemIndex) => (
-      itemIndex === index ? { ...item, [field]: field === "quantity" ? Number(value || 1) : value } : item
+      itemIndex === index ? { ...item, [field]: value } : item
     ));
-    this.setData({ configEquipmentList });
+    const nextData = { configEquipmentList };
+    if (field === "name") {
+      nextData.activeEquipmentIndex = index;
+      nextData.equipmentSuggestions = this.buildEquipmentSuggestions(value);
+    }
+    this.setData(nextData);
+  },
+
+  buildEquipmentSuggestions(keyword) {
+    const text = String(keyword || "").trim();
+    if (!text) return [];
+    const nameMap = {};
+    (this.data.instrumentCatalog || [])
+      .filter((item) => item.name && item.name.indexOf(text) >= 0)
+      .forEach((item) => {
+        if (!nameMap[item.name]) {
+          nameMap[item.name] = { name: item.name };
+        }
+      });
+    return Object.keys(nameMap).map((name) => nameMap[name]).slice(0, 8);
+  },
+
+  selectConfigEquipment(event) {
+    if (!this.data.canEditInstrumentConfig) return;
+    const index = Number(event.currentTarget.dataset.index);
+    const name = event.currentTarget.dataset.name;
+    if (!name) return;
+    const configEquipmentList = this.data.configEquipmentList.map((item, itemIndex) => (
+      itemIndex === index
+        ? {
+          ...item,
+          instrumentId: "",
+          code: "",
+          model: "",
+          name,
+          quantity: item.quantity || 1
+        }
+        : item
+    ));
+    this.setData({
+      configEquipmentList,
+      activeEquipmentIndex: -1,
+      equipmentSuggestions: []
+    });
   },
 
   removeConfigEquipment(event) {
@@ -549,6 +882,12 @@ Page({
     const id = event.currentTarget.dataset.id;
     const task = (this.data.board.onsite || []).find((item) => item.id === id);
     if (!task) return;
+    const user = getApp().globalData.user || {};
+    const canAdminEdit = (user.capabilities || []).includes("global_admin") || (user.capabilities || []).includes("task_manage");
+    if (task.status === "done" && !canAdminEdit) {
+      wx.showToast({ title: "已完成任务仅管理员可修改", icon: "none" });
+      return;
+    }
     const projectIndex = Math.max(0, this.data.projectTypes.indexOf(task.projectType || "temperature"));
     const attendance = this.splitPeople(task.attendance);
     const participants = this.splitPeople(task.participants);
@@ -736,7 +1075,7 @@ Page({
   },
 
   getPersonAttendanceLevel(name) {
-    const person = users.find((item) => item.name === name) || {};
+    const person = ((this.orgConfig && this.orgConfig.users) || []).find((item) => item.name === name) || {};
     return this.data.attendanceLevels[person.id] || person.attendanceLevel || "";
   },
 
@@ -844,6 +1183,9 @@ Page({
       return;
     }
     const user = getApp().globalData.user;
+    const originalTask = this.data.isEditingTask
+      ? (this.data.board.onsite || []).find((task) => task.id === this.data.editingTaskId)
+      : null;
     const item = {
       id: this.data.editingTaskId || `ONSITE-${Date.now()}`,
       title: form.task,
@@ -852,11 +1194,11 @@ Page({
       date: form.date,
       endDate: form.endDate,
       deadline: form.endDate,
-      status: "waiting",
-      statusText: "待开始",
-      statusTone: "amber",
+      status: originalTask ? originalTask.status : "waiting",
+      statusText: originalTask ? originalTask.statusText : "待开始",
+      statusTone: originalTask ? originalTask.statusTone : "amber",
       priority: form.riskLevel,
-      progress: 0,
+      progress: originalTask ? originalTask.progress : 0,
       riskLevel: form.riskLevel,
       attendance: form.attendance.join("、"),
       participants: form.participants.join("、"),
@@ -895,8 +1237,23 @@ Page({
 
   async saveEditedOnsiteWork(item) {
     const recordId = this.data.editingRecordId;
+    const original = (this.data.board.onsite || []).find((task) => task.id === item.id) || {};
+    const user = getApp().globalData.user || {};
+    const canAdminEdit = (user.capabilities || []).includes("global_admin") || (user.capabilities || []).includes("task_manage");
+    if (original.status === "done" && !canAdminEdit) {
+      wx.showToast({ title: "已完成任务仅管理员可修改", icon: "none" });
+      return;
+    }
+    const editedItem = {
+      ...item,
+      status: original.status || item.status,
+      statusText: original.statusText || item.statusText,
+      statusTone: original.statusTone || item.statusTone,
+      statusOrder: original.statusOrder,
+      progress: original.progress !== undefined ? original.progress : item.progress
+    };
     const onsite = this.prepareOnsiteTasks((this.data.board.onsite || []).map((task) => (
-      task.id === item.id ? { ...task, ...item, _id: task._id } : task
+      task.id === item.id ? { ...task, ...editedItem, _id: task._id } : task
     )));
     const board = { ...this.data.board, onsite };
     this.setData({
@@ -909,7 +1266,7 @@ Page({
     });
     this.setTabBarHidden(false);
     if (recordId) {
-      await this.updateCloudOnsiteWork(recordId, item);
+      await this.updateCloudOnsiteWork(recordId, editedItem);
     } else {
       wx.setStorageSync("onsiteWorks", onsite.filter((work) => String(work.id).indexOf("ONSITE-") === 0));
     }

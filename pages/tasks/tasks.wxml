@@ -1,10 +1,12 @@
 ﻿<view class="page">
   <view class="task-toolbar">
-    <view>
+    <view class="task-toolbar-title">
       <view class="page-title">工作任务看板</view>
-      <view class="page-subtitle">现场、应急、重点工作分类跟踪</view>
     </view>
-    <button class="add-button" bindtap="createTask">+ 新建</button>
+    <view class="toolbar-actions">
+      <view class="add-button" bindtap="createTask">+ 新建</view>
+      <view class="toolbar-config-button" wx:if="{{activeCategory === 'onsite'}}" bindtap="openWorkConfigPanel">配置</view>
+    </view>
   </view>
 
   <view class="work-summary">
@@ -21,30 +23,22 @@
   </view>
 
   <view class="onsite-filters" wx:if="{{activeCategory === 'onsite'}}">
-    <view class="onsite-config-row">
-      <button class="config-work-button" bindtap="openWorkConfigPanel">配置工作</button>
-    </view>
-    <view class="filter-row">
+    <view class="filter-row compact-filter-row">
       <view
         wx:for="{{onsiteOwnerFilters}}"
         wx:key="key"
-        class="filter-chip {{onsiteOwnerFilter === item.key ? 'active' : ''}}"
+        class="filter-chip owner-filter-chip {{onsiteOwnerFilter === item.key ? 'active' : ''}}"
         data-key="{{item.key}}"
         bindtap="switchOnsiteOwnerFilter"
       >
         {{item.name}}
       </view>
-    </view>
-    <view class="filter-row">
-      <view
-        wx:for="{{onsiteTimeFilters}}"
-        wx:key="key"
-        class="filter-chip {{onsiteTimeFilter === item.key ? 'active' : ''}}"
-        data-key="{{item.key}}"
-        bindtap="switchOnsiteTimeFilter"
-      >
-        {{item.name}}
-      </view>
+      <picker class="time-filter-picker" mode="selector" range="{{onsiteTimeFilters}}" range-key="name" bindchange="switchOnsiteTimeFilter">
+        <view class="filter-chip time-filter-chip">
+          {{onsiteTimeFilters[onsiteTimeIndex].name}}
+          <text class="time-filter-arrow">⌄</text>
+        </view>
+      </picker>
     </view>
   </view>
 
@@ -55,12 +49,12 @@
         <status-pill text="{{item.statusText}}" tone="{{item.statusTone}}" />
       </view>
       <view class="task-meta">
-        <text>负责人：{{item.owner}}</text>
-        <text wx:if="{{activeCategory === 'onsite' && item.riskLevel}}">
+        <view class="meta-item owner-meta">负责人：{{item.owner}}</view>
+        <view class="meta-item risk-meta" wx:if="{{activeCategory === 'onsite' && item.riskLevel}}">
           风险等级：<text class="risk-number {{item.riskTone}}">{{item.riskLevel}}</text>
-        </text>
-        <text wx:if="{{activeCategory === 'onsite'}}">任务时间：{{item.timeText}}</text>
-        <text wx:else>截止：{{item.deadline}}</text>
+        </view>
+        <view class="meta-item time-meta" wx:if="{{activeCategory === 'onsite'}}">时间：{{item.timeText}}</view>
+        <view class="meta-item time-meta" wx:else>截止：{{item.deadline}}</view>
       </view>
       <view class="task-detail" wx:if="{{(activeCategory !== 'onsite' && item.riskLevel) || item.attendance || item.participants}}">
         <text wx:if="{{activeCategory !== 'onsite' && item.riskLevel}}">风险：{{item.riskLevel}}</text>
@@ -233,43 +227,78 @@
         <button class="panel-action primary" bindtap="saveCurrentProjectConfig">保存</button>
       </view>
       <view class="project-panel-body">
-        <view class="field">
+        <view class="config-mode-tabs">
+          <view class="config-mode-tab {{configMode === 'edit' ? 'active' : ''}}" data-mode="edit" bindtap="switchConfigMode">修改已有</view>
+          <view class="config-mode-tab {{configMode === 'add' ? 'active' : ''}}" data-mode="add" bindtap="switchConfigMode">新增项目</view>
+        </view>
+
+        <block wx:if="{{configMode === 'edit'}}">
+          <view class="field">
+            <view class="label">选择试验项目</view>
+            <view class="select-project-box" bindtap="openConfigProjectPicker">
+              <text>{{projectConfigs[configProjectIndex].name}}</text>
+              <text class="select-arrow">选择</text>
+            </view>
+          </view>
+        </block>
+
+        <view class="field" wx:if="{{configMode === 'add'}}">
           <view class="label">新增试验项目</view>
-          <view class="config-add-row">
-            <input value="{{newProjectName}}" bindinput="onNewProjectNameInput" placeholder="输入试验项目名称" />
-            <button bindtap="addProjectConfig">添加</button>
-          </view>
-        </view>
-        <view class="config-project-tabs">
-          <view
-            wx:for="{{projectConfigs}}"
-            wx:key="key"
-            class="config-project-tab {{configProjectIndex === index ? 'active' : ''}}"
-            data-index="{{index}}"
-            bindtap="selectConfigProject"
-          >
-            {{item.name}}
-          </view>
-        </view>
-        <view class="field">
-          <view class="label">项目名称</view>
           <input value="{{configProjectName}}" bindinput="onConfigProjectNameInput" placeholder="输入项目名称" />
         </view>
         <view class="config-section-title">
-          <text>对应仪器列表</text>
+          <text>试验仪器列表</text>
           <button bindtap="addConfigEquipment">添加仪器</button>
         </view>
-        <view class="config-equipment-card" wx:for="{{configEquipmentList}}" wx:key="instrumentId">
-          <view class="config-equipment-head">
-            <text>仪器 {{index + 1}}</text>
-            <button data-index="{{index}}" bindtap="removeConfigEquipment">删除</button>
+        <view class="config-equipment-card" wx:for="{{configEquipmentList}}" wx:for-index="equipmentIndex" wx:key="*this">
+          <view class="equipment-name-wrap">
+            <input class="equipment-name-input" data-index="{{equipmentIndex}}" data-field="name" value="{{item.name}}" bindinput="onConfigEquipmentInput" placeholder="搜索仪器名称" />
+            <view class="equipment-suggestions" wx:if="{{activeEquipmentIndex === equipmentIndex && equipmentSuggestions.length}}">
+              <view
+                class="equipment-suggestion"
+                wx:for="{{equipmentSuggestions}}"
+                wx:for-item="suggestion"
+                wx:for-index="suggestionIndex"
+                wx:key="name"
+                data-index="{{equipmentIndex}}"
+                data-name="{{suggestion.name}}"
+                bindtap="selectConfigEquipment"
+              >
+                <text>{{suggestion.name}}</text>
+              </view>
+            </view>
           </view>
-          <input data-index="{{index}}" data-field="name" value="{{item.name}}" bindinput="onConfigEquipmentInput" placeholder="仪器名称" />
-          <input data-index="{{index}}" data-field="quantity" value="{{item.quantity}}" type="number" bindinput="onConfigEquipmentInput" placeholder="数量" />
-          <input data-index="{{index}}" data-field="purpose" value="{{item.purpose}}" bindinput="onConfigEquipmentInput" placeholder="用途" />
+          <input class="equipment-qty-input" data-index="{{equipmentIndex}}" data-field="quantity" value="{{item.quantity}}" type="number" bindinput="onConfigEquipmentInput" placeholder="数量" />
+          <button data-index="{{equipmentIndex}}" bindtap="removeConfigEquipment">删除</button>
         </view>
         <view class="empty" wx:if="{{configEquipmentList.length === 0}}">暂无仪器，点击添加仪器</view>
-        <view class="delete-task-button" bindtap="deleteCurrentProjectConfig">删除当前试验项目</view>
+        <view class="empty" wx:if="{{!canEditInstrumentConfig}}">保存后提交仓库管理员或管理员确认</view>
+        <view class="delete-task-button" wx:if="{{configMode === 'edit' && canDeleteProjectConfig}}" bindtap="deleteCurrentProjectConfig">删除当前试验项目</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="person-mask" wx:if="{{configProjectPickerVisible}}" catchtap="closeConfigProjectPicker">
+    <view class="person-panel" catchtap="noop">
+      <view class="work-panel-head">
+        <button class="panel-action" bindtap="closeConfigProjectPicker">取消</button>
+        <view class="panel-title">选择试验项目</view>
+        <button class="panel-action primary" bindtap="closeConfigProjectPicker">完成</button>
+      </view>
+      <view class="person-panel-body">
+        <input class="person-search" value="{{configProjectSearch}}" bindinput="onConfigProjectSearch" placeholder="输入试验项目名称搜索" />
+        <view class="project-list">
+          <view
+            class="project-row-item {{configProjectIndex === item.index ? 'checked' : ''}}"
+            wx:for="{{filteredConfigProjects}}"
+            wx:key="key"
+            data-index="{{item.index}}"
+            bindtap="confirmConfigProjectSelection"
+          >
+            <text>{{item.name}}</text>
+            <text class="person-check">{{configProjectIndex === item.index ? '✓' : ''}}</text>
+          </view>
+        </view>
       </view>
     </view>
   </view>

@@ -1,4 +1,4 @@
-<view class="page">
+﻿<view class="page">
   <view class="type-tabs card" wx:if="{{activeType !== 'room'}}">
     <view wx:for="{{types}}" wx:key="key" class="type-tab {{activeType === item.key ? 'active' : ''}}" data-type="{{item.key}}" bindtap="switchType">
       <text>{{item.name}}</text>
@@ -6,9 +6,12 @@
   </view>
 
   <view class="form card" wx:if="{{activeType !== 'room'}}">
-    <view class="form-title">{{currentType.name}}</view>
-    <view class="form-subtitle" wx:if="{{activeType !== 'meeting' && activeType !== 'seal'}}">{{currentType.desc}}</view>
-    <view class="flow-note {{currentType.approvalRequired ? 'needs-approval' : 'no-approval'}}" wx:if="{{activeType !== 'meeting' && activeType !== 'seal'}}">
+    <view class="form-title-row">
+      <view class="form-title">{{currentType.name}}</view>
+      <view class="title-catalog-button" wx:if="{{activeType === 'instrument' || activeType === 'return'}}" bindtap="openInstrumentCatalog">仪器清单</view>
+    </view>
+    <view class="form-subtitle" wx:if="{{activeType !== 'meeting' && activeType !== 'seal' && activeType !== 'instrument' && activeType !== 'return'}}">{{currentType.desc}}</view>
+    <view class="flow-note {{currentType.approvalRequired ? 'needs-approval' : 'no-approval'}}" wx:if="{{activeType !== 'meeting' && activeType !== 'seal' && activeType !== 'instrument' && activeType !== 'return'}}">
       {{currentType.approvalRequired ? '提交后进入审批流程' : '无需审批，提交后直接登记'}}
     </view>
 
@@ -66,12 +69,25 @@
     <view class="field" wx:if="{{activeType === 'instrument' || activeType === 'return'}}">
       <view class="label">{{activeType === 'instrument' ? '逐项确认已借设备' : '逐项核对归还设备'}}</view>
       <view class="equipment-check-list">
-        <view class="equipment-check {{item.checked ? 'checked' : ''}}" wx:for="{{selectedTaskEquipment}}" wx:key="instrumentId" data-index="{{index}}" bindtap="toggleEquipmentCheck">
+        <view class="equipment-check {{equipment.checked ? 'checked' : ''}}" wx:for="{{selectedTaskEquipment}}" wx:for-item="equipment" wx:for-index="equipmentIndex" wx:key="rowKey" data-index="{{equipmentIndex}}" bindtap="toggleEquipmentCheck">
           <view>
-            <view class="equipment-name">{{item.name}} × {{item.quantity}}</view>
-            <view class="equipment-purpose">{{item.purpose}}</view>
+            <view class="equipment-name">{{equipment.name}} × {{equipment.requiredQuantity}}</view>
+            <view class="equipment-purpose" wx:if="{{activeType === 'return'}}">型号：{{equipment.model || '待选择'}}　编号：{{equipment.code || equipment.instrumentId || '待选择'}}</view>
+            <view class="equipment-purpose">{{equipment.purpose}}</view>
+            <view class="selected-instrument-list" wx:if="{{equipment.selectedInstruments && equipment.selectedInstruments.length}}">
+              <view class="selected-instrument" wx:for="{{equipment.selectedInstruments}}" wx:for-item="selected" wx:for-index="selectedIndex" wx:key="instrumentId">
+                <text>{{selected.model || '无型号'}} / {{selected.code || selected.instrumentId}}</text>
+                <text wx:if="{{activeType === 'instrument'}}" class="selected-remove" data-equipment-index="{{equipmentIndex}}" data-selected-index="{{selectedIndex}}" catchtap="removeSelectedInstrument">删除</text>
+              </view>
+            </view>
+            <view class="equipment-purpose" wx:if="{{activeType === 'instrument' && equipment.selectedInstruments.length < equipment.requiredQuantity}}">
+              还需选择 {{equipment.requiredQuantity - equipment.selectedInstruments.length}} 台
+            </view>
+            <picker wx:if="{{activeType === 'instrument' && equipment.selectedInstruments.length < equipment.requiredQuantity}}" mode="selector" range="{{equipment.instrumentOptions}}" data-index="{{equipmentIndex}}" bindchange="onSelectedEquipmentInstrumentChange">
+              <view class="equipment-picker">选择型号 / 编号</view>
+            </picker>
           </view>
-          <view class="equipment-mark">{{item.checked ? '已确认' : '待确认'}}</view>
+          <view class="equipment-mark">{{equipment.checked ? '已确认' : '待确认'}}</view>
         </view>
       </view>
     </view>
@@ -182,20 +198,96 @@
   </view>
 
   <view class="section-title" wx:if="{{activeType === 'instrument' || activeType === 'return'}}">
-    <text>出入库记录</text>
+    <text>历史借用记录</text>
   </view>
   <view class="list" wx:if="{{activeType === 'instrument' || activeType === 'return'}}">
-    <view class="meeting-record card" wx:for="{{instrumentFlow}}" wx:key="id">
-      <view class="meeting-record-title">{{item.instrumentName}} · {{item.type}}</view>
-      <view class="meeting-record-meta">数量：{{item.quantity}} · 借用人：{{item.borrower}}</view>
-      <view class="meeting-record-meta">用途：{{item.purpose}}</view>
-      <view class="meeting-record-meta">状态：{{item.status}}</view>
-      <view class="meeting-record-meta">时间：{{item.time}}</view>
-      <button class="record-confirm-button" wx:if="{{item.canConfirm}}" data-id="{{item.id}}" bindtap="confirmInventoryRecord">
-        {{item.type === '归还申请' ? '确认入库' : '确认出库'}}
-      </button>
+    <view class="borrow-record card" wx:for="{{borrowHistory}}" wx:key="id" data-id="{{item.id || item._id}}" bindtap="openInstrumentRecordDetail">
+      <view class="borrow-record-head">
+        <view class="meeting-record-title">{{item.taskText}}</view>
+        <view class="borrow-status">{{item.status}}</view>
+      </view>
+      <view class="meeting-record-meta">借用时间：{{item.timeText}}</view>
+      <view class="meeting-record-meta">借用人：{{item.borrowerText}}</view>
+      <view class="borrow-more">查看借用明细</view>
     </view>
-    <view class="empty" wx:if="{{instrumentFlow.length === 0}}">暂无出入库记录</view>
+    <view class="empty" wx:if="{{borrowHistory.length === 0}}">暂无借用记录</view>
+  </view>
+
+  <view class="section-title" wx:if="{{(activeType === 'instrument' || activeType === 'return') && pendingReturnRecords.length}}">
+    <text>待确认归还</text>
+  </view>
+  <view class="list" wx:if="{{(activeType === 'instrument' || activeType === 'return') && pendingReturnRecords.length}}">
+    <view class="borrow-record card" wx:for="{{pendingReturnRecords}}" wx:key="id">
+      <view class="borrow-record-head">
+        <view class="meeting-record-title">{{item.equipmentText}}</view>
+        <view class="borrow-status return">归还申请</view>
+      </view>
+      <view class="meeting-record-meta">申请时间：{{item.timeText}}</view>
+      <view class="meeting-record-meta">归还人：{{item.borrowerText}}</view>
+      <view class="meeting-record-meta">关联现场工作：{{item.taskText}}</view>
+      <button class="record-confirm-button" data-id="{{item.id}}" bindtap="confirmInventoryRecord">确认入库</button>
+    </view>
+  </view>
+
+  <view class="detail-mask" wx:if="{{instrumentDetailVisible}}" catchtap="closeInstrumentRecordDetail">
+    <view class="detail-panel" catchtap="noop">
+      <view class="detail-head">
+        <view class="detail-title">借用明细</view>
+        <view class="detail-close" bindtap="closeInstrumentRecordDetail">×</view>
+      </view>
+      <view class="detail-line">现场工作：{{instrumentDetailRecord.taskText}}</view>
+      <view class="detail-line">借用时间：{{instrumentDetailRecord.timeText}}</view>
+      <view class="detail-line">借用人：{{instrumentDetailRecord.borrowerText}}</view>
+      <view class="detail-line">状态：{{instrumentDetailRecord.status}}</view>
+      <view class="detail-subtitle">仪器清单</view>
+      <view class="detail-equipment" wx:for="{{instrumentDetailRecord.equipmentDetails}}" wx:key="instrumentId">
+        <view class="detail-equipment-name">{{item.displayName || item.name}} × {{item.quantity || 1}}</view>
+        <view class="detail-equipment-purpose">{{item.purpose}}</view>
+      </view>
+      <view class="empty small" wx:if="{{!instrumentDetailRecord.equipmentDetails || instrumentDetailRecord.equipmentDetails.length === 0}}">
+        {{instrumentDetailRecord.equipmentText || '暂无仪器明细'}}
+      </view>
+    </view>
+  </view>
+
+  <view class="detail-mask" wx:if="{{instrumentCatalogVisible}}" catchtap="closeInstrumentCatalog">
+    <view class="detail-panel instrument-catalog-panel" catchtap="noop">
+      <view class="detail-head">
+        <view class="detail-title">仪器清单</view>
+        <view class="detail-close" bindtap="closeInstrumentCatalog">×</view>
+      </view>
+      <view class="catalog-actions">
+        <input value="{{instrumentCatalogSearch}}" bindinput="onInstrumentCatalogSearch" placeholder="搜索仪器名称、编号、型号" />
+        <view class="catalog-action-button" wx:if="{{canEditInstrumentCatalog}}" bindtap="addInstrumentCatalogItem">新增</view>
+        <view class="catalog-action-button secondary" wx:if="{{canEditInstrumentCatalog}}" bindtap="uploadInstrumentTable">导入</view>
+      </view>
+      <view class="catalog-form" wx:if="{{instrumentCatalogFormVisible}}">
+        <input data-field="code" value="{{instrumentCatalogForm.code}}" bindinput="onInstrumentCatalogFormInput" placeholder="仪器编号" />
+        <input data-field="name" value="{{instrumentCatalogForm.name}}" bindinput="onInstrumentCatalogFormInput" placeholder="仪器名称" />
+        <input data-field="model" value="{{instrumentCatalogForm.model}}" bindinput="onInstrumentCatalogFormInput" placeholder="型号" />
+        <input data-field="stock" value="{{instrumentCatalogForm.stock}}" type="number" bindinput="onInstrumentCatalogFormInput" placeholder="数量" />
+        <input data-field="unit" value="{{instrumentCatalogForm.unit}}" bindinput="onInstrumentCatalogFormInput" placeholder="单位" />
+        <input data-field="location" value="{{instrumentCatalogForm.location}}" bindinput="onInstrumentCatalogFormInput" placeholder="存放地点" />
+        <input data-field="remark" value="{{instrumentCatalogForm.remark}}" bindinput="onInstrumentCatalogFormInput" placeholder="备注" />
+        <view class="catalog-save-button" bindtap="saveInstrumentCatalogForm">保存仪器</view>
+      </view>
+      <view class="catalog-list">
+        <view class="catalog-card" wx:for="{{filteredInstrumentCatalog}}" wx:key="instrumentId">
+          <view class="catalog-card-main">
+            <view class="catalog-name">{{item.name}}</view>
+            <view class="catalog-meta">编号：{{item.code}} · 型号：{{item.model || '未填'}}</view>
+            <view class="catalog-meta">库存：{{item.stock}}{{item.unit}} · 可用：{{item.available}}{{item.unit}}</view>
+            <view class="catalog-meta">地点：{{item.location || '未填'}}</view>
+            <view class="catalog-meta">使用人：{{item.currentUsersText || '未借出'}} · 借出：{{item.borrowedQuantity || 0}}{{item.unit}}</view>
+          </view>
+          <view class="catalog-card-actions">
+            <view wx:if="{{canEditInstrumentCatalog}}" data-index="{{index}}" bindtap="editInstrumentCatalogItem">修改</view>
+            <view bindtap="borrowCatalogInstrument">借用</view>
+          </view>
+        </view>
+      </view>
+      <view class="empty" wx:if="{{filteredInstrumentCatalog.length === 0}}">暂无仪器</view>
+    </view>
   </view>
 
   <view class="room-scheduler" wx:if="{{activeType === 'room'}}">

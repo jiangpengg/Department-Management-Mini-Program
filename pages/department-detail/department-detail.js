@@ -1,5 +1,5 @@
-const { departments, users, roles } = require("../../utils/mock");
 const { ensureAuthorized, getCurrentUser, canManageSystem, canManageDepartment } = require("../../utils/auth");
+const { loadOrgConfig, saveOrgConfig } = require("../../utils/org-store");
 
 Page({
   data: {
@@ -10,7 +10,7 @@ Page({
     searchResults: []
   },
 
-  onLoad(options) {
+  async onLoad(options) {
     if (!ensureAuthorized()) return;
     if (!canManageDepartment()) {
       wx.showToast({ title: "无科室配置权限", icon: "none" });
@@ -18,7 +18,8 @@ Page({
       return;
     }
 
-    const department = departments.find((item) => item.id === options.id) || departments[0];
+    this.orgConfig = await loadOrgConfig({ operator: (getCurrentUser() || {}).name || "" });
+    const department = this.orgConfig.departments.find((item) => item.id === options.id) || this.orgConfig.departments[0];
     if (!canManageSystem() && department.name !== getCurrentUser().department) {
       wx.showToast({ title: "只能管理本科室", icon: "none" });
       wx.switchTab({ url: "/pages/profile/profile" });
@@ -27,9 +28,9 @@ Page({
 
     this.setData({
       department,
-      allUsers: users
+      allUsers: this.orgConfig.users
     });
-    this.refreshMembers(department.name, users);
+    this.refreshMembers(department.name, this.orgConfig.users);
   },
 
   refreshMembers(departmentName, userList = this.data.allUsers) {
@@ -56,7 +57,7 @@ Page({
     ));
     this.setData({ allUsers: usersNext, searchKeyword: "", searchResults: [] });
     this.refreshMembers(this.data.department.name, usersNext);
-    this.showDraftToast("已加入科室");
+    this.saveUsers(usersNext, "已加入科室");
   },
 
   removeMember(event) {
@@ -66,13 +67,18 @@ Page({
     ));
     this.setData({ allUsers: usersNext });
     this.refreshMembers(this.data.department.name, usersNext);
-    this.showDraftToast("已移出科室");
+    this.saveUsers(usersNext, "已移出科室");
   },
 
-  showDraftToast(title) {
-    wx.showToast({
-      title: `${title}，待接入云端保存`,
-      icon: "none"
+  saveUsers(users, toastTitle) {
+    this.orgConfig = { ...this.orgConfig, users };
+    saveOrgConfig(this.orgConfig, (getCurrentUser() || {}).name || "").then((result) => {
+      wx.showToast({
+        title: result.ok ? toastTitle : `${toastTitle}，本地已暂存`,
+        icon: "none"
+      });
+    }).catch(() => {
+      wx.showToast({ title: `${toastTitle}，本地已暂存`, icon: "none" });
     });
   }
 });

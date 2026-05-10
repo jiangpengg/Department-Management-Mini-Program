@@ -1,5 +1,5 @@
-const { departments, users, roles } = require("../../utils/mock");
 const { ensureAuthorized, getCurrentUser, canManageSystem, canManageDepartment, getManageScope } = require("../../utils/auth");
+const { loadOrgConfig, saveOrgConfig } = require("../../utils/org-store");
 
 Page({
   data: {
@@ -8,7 +8,7 @@ Page({
     roleNames: []
   },
 
-  onLoad() {
+  async onLoad() {
     if (!ensureAuthorized()) return;
     if (!canManageDepartment()) {
       wx.showToast({ title: "无人员管理权限", icon: "none" });
@@ -16,19 +16,21 @@ Page({
       return;
     }
 
+    const orgConfig = await loadOrgConfig({ operator: (getCurrentUser() || {}).name || "" });
+    this.orgConfig = orgConfig;
     const currentUser = getCurrentUser();
     const scope = getManageScope();
     const visibleUsers = scope === "global"
-      ? users
-      : users.filter((item) => item.department === currentUser.department);
+      ? orgConfig.users
+      : orgConfig.users.filter((item) => item.department === currentUser.department);
     const visibleDepartments = scope === "global"
-      ? departments
-      : departments.filter((item) => item.name === currentUser.department);
+      ? orgConfig.departments
+      : orgConfig.departments.filter((item) => item.name === currentUser.department);
 
     this.setData({
       users: visibleUsers,
       departmentNames: visibleDepartments.map((item) => item.name),
-      roleNames: roles.map((item) => item.name)
+      roleNames: orgConfig.roles.map((item) => item.name)
     });
   },
 
@@ -41,40 +43,40 @@ Page({
       return;
     }
 
-    this.setData({
-      users: this.data.users.map((item) => (
-        item.id === userId ? { ...item, department, authorized: true } : item
-      ))
-    });
-    this.showDraftToast("已设置部门");
+    this.updateUser(userId, { department, authorized: true }, "已设置部门");
   },
 
   setRole(event) {
     const userId = event.currentTarget.dataset.id;
-    const role = roles[Number(event.detail.value)];
+    const role = (this.orgConfig.roles || [])[Number(event.detail.value)];
     if (!role) return;
-    this.setData({
-      users: this.data.users.map((item) => (
-        item.id === userId ? { ...item, role: role.name, roleKey: role.key, authorized: true } : item
-      ))
-    });
-    this.showDraftToast("已设置角色");
+    this.updateUser(userId, { role: role.name, roleKey: role.key, authorized: true }, "已设置角色");
   },
 
   toggleAuthorized(event) {
     const userId = event.currentTarget.dataset.id;
-    this.setData({
-      users: this.data.users.map((item) => (
-        item.id === userId ? { ...item, authorized: !item.authorized } : item
-      ))
-    });
-    this.showDraftToast("已更新授权");
+    const target = this.data.users.find((item) => item.id === userId);
+    if (!target) return;
+    this.updateUser(userId, { authorized: !target.authorized }, "已更新授权");
   },
 
-  showDraftToast(title) {
-    wx.showToast({
-      title: `${title}，待接入云端保存`,
-      icon: "none"
+  updateUser(userId, patch, toastTitle) {
+    const users = (this.orgConfig.users || []).map((item) => (
+      item.id === userId ? { ...item, ...patch } : item
+    ));
+    this.orgConfig = { ...this.orgConfig, users };
+    this.setData({
+      users: this.data.users.map((item) => (
+        item.id === userId ? { ...item, ...patch } : item
+      ))
+    });
+    saveOrgConfig(this.orgConfig, (getCurrentUser() || {}).name || "").then((result) => {
+      wx.showToast({
+        title: result.ok ? toastTitle : `${toastTitle}，本地已暂存`,
+        icon: "none"
+      });
+    }).catch(() => {
+      wx.showToast({ title: `${toastTitle}，本地已暂存`, icon: "none" });
     });
   }
 });
