@@ -45,6 +45,11 @@ function formatDate(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+function formatTaskNoDate(value) {
+  const normalized = normalizeDateValue(value) || formatDate(new Date());
+  return normalized.replace(/-/g, "");
+}
+
 function parseDate(value) {
   const parts = String(value || formatDate(new Date())).split("-").map(Number);
   return new Date(parts[0], parts[1] - 1, parts[2]);
@@ -77,6 +82,26 @@ function normalizeDateValue(value) {
 
 function getRiskTone(value) {
   return Number(value) <= 3 ? "red" : "amber";
+}
+
+function isOutFlow(record = {}) {
+  const type = String(record.type || "");
+  return type === "出库申请" || type.indexOf("出库") >= 0 || type.indexOf("鍑哄簱") >= 0;
+}
+
+function isReturnFlow(record = {}) {
+  const type = String(record.type || "");
+  return type === "归还申请" || type.indexOf("归还") >= 0 || type.indexOf("褰掕繕") >= 0;
+}
+
+function isOutConfirmed(record = {}) {
+  const status = String(record.status || "");
+  return status === "已出库" || status.indexOf("已出库") >= 0 || status.indexOf("宸插嚭搴") >= 0;
+}
+
+function isReturnConfirmed(record = {}) {
+  const status = String(record.status || "");
+  return status === "已入库" || status.indexOf("已入库") >= 0 || status.indexOf("宸插叆搴") >= 0;
 }
 
 function normalizeConfigEquipment(list) {
@@ -158,17 +183,19 @@ Page({
     ],
     onsiteOwnerFilter: "all",
     onsiteTimeFilters: [
+      { key: "all", name: "全部" },
       { key: "history", name: "历史工作" },
       { key: "thisWeek", name: "本周" },
       { key: "nextWeek", name: "下周" },
       { key: "thisMonth", name: "本月" }
     ],
-    onsiteTimeFilter: "thisWeek",
-    onsiteTimeIndex: 1,
+    onsiteTimeFilter: "all",
+    onsiteTimeIndex: 0,
     board: {},
     tasks: [],
     summaries: [],
     createPanelVisible: false,
+    onsiteSubmitting: false,
     editingTaskId: "",
     editingRecordId: "",
     isEditingTask: false,
@@ -354,9 +381,9 @@ Page({
   async loadBoard() {
     const user = getApp().globalData.user;
     const cloudOnsite = await this.loadCloudOnsiteWorks();
-    const localOnsite = cloudOnsite.length ? [] : (wx.getStorageSync("onsiteWorks") || []);
-    const closedOnsiteTaskIds = cloudOnsite.length ? [] : (wx.getStorageSync("closedOnsiteTaskIds") || []);
-    const deletedOnsiteTaskIds = wx.getStorageSync("deletedOnsiteTaskIds") || [];
+    const localOnsite = wx.cloud ? [] : (wx.getStorageSync("onsiteWorks") || []);
+    const closedOnsiteTaskIds = wx.cloud ? [] : (wx.getStorageSync("closedOnsiteTaskIds") || []);
+    const deletedOnsiteTaskIds = wx.cloud ? [] : (wx.getStorageSync("deletedOnsiteTaskIds") || []);
     const board = buildTaskBoard(user);
     board.onsite = this.mergeOnsite([], cloudOnsite.concat(localOnsite));
     board.onsite = board.onsite.filter((item) => deletedOnsiteTaskIds.indexOf(item.id) < 0);
@@ -408,6 +435,7 @@ Page({
       const canOwnTask = item.owner === user.name || capabilities.includes("task_manage") || capabilities.includes("global_admin");
       return {
         ...item,
+        taskNo: item.taskNo || item.no || "",
         status: normalizedStatus,
         statusText: meta.text,
         statusTone: meta.tone,
@@ -421,6 +449,17 @@ Page({
       if (a.statusOrder !== b.statusOrder) return a.statusOrder - b.statusOrder;
       return String(a.date || "").localeCompare(String(b.date || ""));
     });
+  },
+
+  generateOnsiteTaskNo(date) {
+    const day = formatTaskNoDate(date);
+    const existing = (this.data.board.onsite || [])
+      .map((item) => String(item.taskNo || item.no || ""))
+      .filter((value) => value.indexOf(day) === 0)
+      .map((value) => Number(value.slice(day.length)))
+      .filter((value) => Number.isFinite(value));
+    const next = existing.length ? Math.max(...existing) + 1 : 1;
+    return `${day}${pad(next)}`;
   },
 
   getVisibleTasks(board, categoryKey) {
@@ -1182,57 +1221,65 @@ Page({
       });
       return;
     }
-    const user = getApp().globalData.user;
-    const originalTask = this.data.isEditingTask
-      ? (this.data.board.onsite || []).find((task) => task.id === this.data.editingTaskId)
-      : null;
-    const item = {
-      id: this.data.editingTaskId || `ONSITE-${Date.now()}`,
-      title: form.task,
-      owner: form.owner,
-      department: user.department,
-      date: form.date,
-      endDate: form.endDate,
-      deadline: form.endDate,
-      status: originalTask ? originalTask.status : "waiting",
-      statusText: originalTask ? originalTask.statusText : "待开始",
-      statusTone: originalTask ? originalTask.statusTone : "amber",
-      priority: form.riskLevel,
-      progress: originalTask ? originalTask.progress : 0,
-      riskLevel: form.riskLevel,
-      attendance: form.attendance.join("、"),
-      participants: form.participants.join("、"),
-      projectType: form.projectType,
-      equipmentDetails: this.getEquipmentTemplate(form.projectType)
-    };
-    if (this.data.isEditingTask) {
-      await this.saveEditedOnsiteWork(item);
-      return;
+    if (this.data.onsiteSubmitting) return;
+    this.setData({ onsiteSubmitting: true });
+    try {
+      const user = getApp().globalData.user;
+      const originalTask = this.data.isEditingTask
+        ? (this.data.board.onsite || []).find((task) => task.id === this.data.editingTaskId)
+        : null;
+      const taskNo = originalTask && originalTask.taskNo ? originalTask.taskNo : this.generateOnsiteTaskNo(form.date);
+      const item = {
+        id: this.data.editingTaskId || `ONSITE-${Date.now()}`,
+        taskNo,
+        title: form.task,
+        owner: form.owner,
+        department: user.department,
+        date: form.date,
+        endDate: form.endDate,
+        deadline: form.endDate,
+        status: originalTask ? originalTask.status : "waiting",
+        statusText: originalTask ? originalTask.statusText : "待开始",
+        statusTone: originalTask ? originalTask.statusTone : "amber",
+        priority: form.riskLevel,
+        progress: originalTask ? originalTask.progress : 0,
+        riskLevel: form.riskLevel,
+        attendance: form.attendance.join("、"),
+        participants: form.participants.join("、"),
+        projectType: form.projectType,
+        equipmentDetails: this.getEquipmentTemplate(form.projectType)
+      };
+      if (this.data.isEditingTask) {
+        await this.saveEditedOnsiteWork(item);
+        return;
+      }
+      const cloudId = await this.createCloudOnsiteWork(item);
+      const savedItem = cloudId ? { ...item, _id: cloudId } : item;
+      const onsite = this.prepareOnsiteTasks([savedItem, ...(this.data.board.onsite || [])]);
+      const board = {
+        ...this.data.board,
+        onsite
+      };
+      const summaries = this.data.summaries.map((summary) => (
+        summary.key === "onsite" ? { ...summary, count: onsite.length } : summary
+      ));
+      this.setData({
+        board,
+        summaries,
+        tasks: this.data.activeCategory === "onsite" ? this.getVisibleTasks(board, "onsite") : this.data.tasks,
+        createPanelVisible: false
+      });
+      this.setTabBarHidden(false);
+      if (!cloudId) {
+        wx.setStorageSync("onsiteWorks", onsite.filter((work) => String(work.id).indexOf("ONSITE-") === 0));
+      }
+      wx.showToast({
+        title: cloudId ? "现场工作已同步" : "现场工作已本地暂存",
+        icon: "success"
+      });
+    } finally {
+      this.setData({ onsiteSubmitting: false });
     }
-    const cloudId = await this.createCloudOnsiteWork(item);
-    const savedItem = cloudId ? { ...item, _id: cloudId } : item;
-    const onsite = this.prepareOnsiteTasks([savedItem, ...(this.data.board.onsite || [])]);
-    const board = {
-      ...this.data.board,
-      onsite
-    };
-    const summaries = this.data.summaries.map((summary) => (
-      summary.key === "onsite" ? { ...summary, count: onsite.length } : summary
-    ));
-    this.setData({
-      board,
-      summaries,
-      tasks: this.data.activeCategory === "onsite" ? this.getVisibleTasks(board, "onsite") : this.data.tasks,
-      createPanelVisible: false
-    });
-    this.setTabBarHidden(false);
-    if (!cloudId) {
-      wx.setStorageSync("onsiteWorks", onsite.filter((work) => String(work.id).indexOf("ONSITE-") === 0));
-    }
-    wx.showToast({
-      title: cloudId ? "现场工作已同步" : "现场工作已本地暂存",
-      icon: "success"
-    });
   },
 
   async saveEditedOnsiteWork(item) {
@@ -1293,8 +1340,10 @@ Page({
   async finishTask(event) {
     const taskId = event.currentTarget.dataset.id;
     if (this.data.activeCategory === "onsite") {
-      const hasUnreturned = await this.hasUnreturnedInstruments(taskId);
-      if (hasUnreturned) {
+      const targetTask = (this.data.board.onsite || []).find((item) => item.id === taskId) || {};
+      const needsInstrumentCycle = targetTask.equipmentDetails && targetTask.equipmentDetails.length;
+      const incompleteInstrumentCycle = needsInstrumentCycle ? await this.hasIncompleteInstrumentCycle(taskId) : false;
+      if (incompleteInstrumentCycle) {
         wx.showToast({
           title: "请先完成仪器归还",
           icon: "none"
@@ -1328,14 +1377,19 @@ Page({
   },
 
   async hasUnreturnedInstruments(taskId) {
+    return this.hasIncompleteInstrumentCycle(taskId);
+  },
+
+  async hasIncompleteInstrumentCycle(taskId) {
     const flows = await this.loadInstrumentFlows();
-    const outRecords = flows.filter((item) => item.taskId === taskId && item.type === "出库申请" && item.status === "已出库");
-    if (!outRecords.length) return false;
+    const outRecords = flows.filter((item) => item.taskId === taskId && isOutFlow(item) && isOutConfirmed(item));
+    if (!outRecords.length) return true;
     const returnedKeys = flows
-      .filter((item) => item.taskId === taskId && item.type === "归还申请" && item.status === "已入库")
-      .map((item) => item.instrumentName)
-      .join("|");
-    return outRecords.some((item) => returnedKeys.indexOf(item.instrumentName) < 0);
+      .filter((item) => item.taskId === taskId && isReturnFlow(item) && isReturnConfirmed(item))
+      .flatMap((item) => (item.equipmentDetails || []).map((equipment) => equipment.code || equipment.instrumentId || equipment.name));
+    return outRecords.some((record) => (record.equipmentDetails || []).some((equipment) => (
+      returnedKeys.indexOf(equipment.code || equipment.instrumentId || equipment.name) < 0
+    )));
   },
 
   async loadInstrumentFlows() {

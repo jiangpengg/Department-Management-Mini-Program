@@ -147,8 +147,8 @@
       </view>
     </view>
 
-    <button class="primary-button" bindtap="submitApply">
-      {{submitting ? '提交中...' : (activeType === 'meeting' && form.needTencent ? '创建腾讯会议' : (activeType === 'instrument' ? '提交出库申请' : (activeType === 'return' ? '提交归还申请' : (currentType.approvalRequired ? '提交审批' : '提交登记'))))}}
+    <button class="primary-button" bindtap="submitApply" disabled="{{submitting}}">
+      {{submitting ? '提交中...' : (activeType === 'meeting' && form.needTencent ? '创建腾讯会议' : (activeType === 'instrument' ? '提交出库申请' : (activeType === 'return' ? '提交仪器归还申请' : (currentType.approvalRequired ? '提交审批' : '提交登记'))))}}
     </button>
 
     <view class="meeting-result card" wx:if="{{meetingResult}}">
@@ -220,7 +220,7 @@
     <view class="borrow-record card" wx:for="{{pendingReturnRecords}}" wx:key="id">
       <view class="borrow-record-head">
         <view class="meeting-record-title">{{item.equipmentText}}</view>
-        <view class="borrow-status return">归还申请</view>
+        <view class="borrow-status return">仪器归还申请</view>
       </view>
       <view class="meeting-record-meta">申请时间：{{item.timeText}}</view>
       <view class="meeting-record-meta">归还人：{{item.borrowerText}}</view>

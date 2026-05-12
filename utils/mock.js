@@ -40,7 +40,7 @@ const applicationTypes = [
   },
   {
     key: "return",
-    name: "归还申请",
+    name: "仪器归还申请",
     desc: "关联现场任务、核对借用设备、入库登记",
     icon: "还",
     approvalRequired: false

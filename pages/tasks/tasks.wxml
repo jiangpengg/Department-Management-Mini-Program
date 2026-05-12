@@ -45,7 +45,12 @@
   <view class="list">
     <view class="task-card card" wx:for="{{tasks}}" wx:key="id" data-id="{{item.id}}" bindtap="openTaskDetail">
       <view class="task-head">
-        <view class="task-title">{{item.title}}</view>
+        <view>
+          <view class="task-title">
+            {{item.title}}
+            <text class="task-no-inline" wx:if="{{activeCategory === 'onsite' && item.taskNo}}">{{item.taskNo}}</text>
+          </view>
+        </view>
         <status-pill text="{{item.statusText}}" tone="{{item.statusTone}}" />
       </view>
       <view class="task-meta">
@@ -77,12 +82,12 @@
     <view class="empty" wx:if="{{tasks.length === 0}}">暂无未闭环工作</view>
   </view>
 
-  <view class="work-mask" wx:if="{{createPanelVisible}}" catchtap="closeCreatePanel">
-    <view class="work-panel" catchtap="noop">
+  <view class="work-mask" wx:if="{{createPanelVisible}}">
+    <view class="work-panel">
       <view class="work-panel-head">
         <button class="panel-action" bindtap="closeCreatePanel">取消</button>
         <view class="panel-title">{{isEditingTask ? '编辑现场工作' : '创建现场工作'}}</view>
-        <button class="panel-action primary" bindtap="submitOnsiteWork">确定</button>
+        <button class="panel-action primary" bindtap="submitOnsiteWork" disabled="{{onsiteSubmitting}}">{{onsiteSubmitting ? '提交中...' : '确定'}}</button>
       </view>
       <view class="work-form">
         <view class="field">
@@ -95,7 +100,7 @@
         </view>
         <view class="field">
           <view class="label">任务</view>
-          <input value="{{onsiteForm.task}}" data-field="task" bindinput="onOnsiteInput" placeholder="请输入现场工作任务" />
+          <input type="text" value="{{onsiteForm.task}}" data-field="task" bindinput="onOnsiteInput" confirm-hold="true" placeholder="请输入现场工作任务" />
         </view>
         <view class="field">
           <view class="label">风险等级</view>
@@ -120,7 +125,7 @@
         </view>
         <view class="field">
           <view class="label">负责人</view>
-          <input value="{{onsiteForm.owner}}" bindinput="onOwnerInput" placeholder="输入姓名，自动匹配所内人员" />
+          <input type="text" value="{{onsiteForm.owner}}" bindinput="onOwnerInput" confirm-hold="true" placeholder="输入姓名，自动匹配所内人员" />
           <view class="suggestion-list" wx:if="{{ownerSuggestions.length}}">
             <view
               class="suggestion-item"

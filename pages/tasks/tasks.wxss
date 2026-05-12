@@ -232,6 +232,13 @@
   line-height: 1.35;
 }
 
+.task-no-inline {
+  margin-left: 12rpx;
+  color: #66726e;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
 .task-meta {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.9fr);

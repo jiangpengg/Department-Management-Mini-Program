@@ -218,7 +218,7 @@ Page({
       roomSelectedName: room.name,
       pickerPanelVisible: true,
       pickerPanelType: "time",
-      pickerPanelTitle: `${room.name} 选择时间`,
+      pickerPanelTitle: `${room.name} 閫夋嫨鏃堕棿`,
       pendingMeetingDate: this.data.form.meetingDate || this.data.todayDate,
       pendingMeetingDateText: this.formatDateText(this.data.form.meetingDate || this.data.todayDate),
       pendingStartHour: startHour,
@@ -421,7 +421,7 @@ Page({
               return;
             }
             const result = await saveInstrumentCatalog(imported, (getCurrentUser() || {}).name || "");
-            wx.showToast({ title: result.ok ? "批量导入完成" : "已本地导入，云端同步失败", icon: result.ok ? "success" : "none" });
+            wx.showToast({ title: result.ok ? "鎵归噺瀵煎叆瀹屾垚" : "宸叉湰鍦板鍏ワ紝浜戠鍚屾澶辫触", icon: result.ok ? "success" : "none" });
             const decorated = this.decorateInstrumentCatalog(imported, this.data.instrumentFlow);
             this.setData({
               instrumentCatalog: decorated,
@@ -438,7 +438,7 @@ Page({
     if (!lines.length) return [];
     const delimiter = lines[0].indexOf("\t") >= 0 ? "\t" : ",";
     const first = lines[0].split(delimiter).map((item) => item.trim());
-    const hasHeader = first.some((item) => ["编号", "仪器编号", "code", "name", "名称", "仪器名称"].includes(item));
+    const hasHeader = first.some((item) => ["缂栧彿", "浠櫒缂栧彿", "code", "name", "鍚嶇О", "浠櫒鍚嶇О"].includes(item));
     const rows = hasHeader ? lines.slice(1) : lines;
     return rows.map((line, index) => {
       const cols = line.split(delimiter).map((item) => item.trim());
@@ -461,14 +461,14 @@ Page({
   async loadStartedOnsiteTasks() {
     const user = getCurrentUser();
     const board = buildTaskBoard(user);
-    const mockOnsite = board.onsite || [];
+    const mockOnsite = wx.cloud ? [] : (board.onsite || []);
     const onsiteProjectConfigs = await this.loadOnsiteProjectConfigs();
     const cloudOnsite = await this.loadCloudOnsiteWorks();
     const localOnsite = cloudOnsite.length ? [] : (wx.getStorageSync("onsiteWorks") || []);
     const flow = await this.loadInstrumentFlowRecords();
-    const borrowedTaskIds = flow
-      .filter((record) => record.type === "出库申请" && record.status === "已出库")
-      .map((record) => record.taskId);
+    const outSubmittedTaskIds = flow.filter((record) => this.isOutFlow(record)).map((record) => record.taskId);
+    const confirmedBorrowedTaskIds = flow.filter((record) => this.isOutFlow(record) && this.isOutConfirmed(record)).map((record) => record.taskId);
+    const returnedTaskIds = flow.filter((record) => this.isReturnFlow(record)).map((record) => record.taskId);
     const taskMap = {};
     mockOnsite.concat(cloudOnsite, localOnsite).forEach((item) => {
       taskMap[item.id] = item;
@@ -476,21 +476,42 @@ Page({
     const started = Object.keys(taskMap)
       .map((id) => taskMap[id])
       .filter((item) => {
-        const hasEquipment = item.status === "processing" && item.equipmentDetails && item.equipmentDetails.length;
+        if (item.status === "deleted" || item.status === "done" || item.visibleToAll === false) return false;
+        const hasEquipment = item.status === "processing" && this.getTaskConfiguredEquipment(item, onsiteProjectConfigs).length;
         if (this.data.activeType === "return") {
-          return hasEquipment && borrowedTaskIds.indexOf(item.id) >= 0;
+          return hasEquipment && confirmedBorrowedTaskIds.indexOf(item.id) >= 0 && returnedTaskIds.indexOf(item.id) < 0;
         }
-        return hasEquipment;
+        return hasEquipment && outSubmittedTaskIds.indexOf(item.id) < 0;
       });
     const selected = started[0] || null;
     const selectedEquipment = this.buildSelectedTaskEquipment(selected, flow, onsiteProjectConfigs);
     this.setData({
       onsiteProjectConfigs,
       startedOnsiteTasks: started,
-      startedTaskNames: started.map((item) => `${item.title}（负责人：${item.owner}）`),
+      startedTaskNames: started.map((item) => `${item.title}${item.taskNo ? ` ${item.taskNo}` : ""}（负责人：${item.owner}）`),
       startedTaskIndex: 0,
       selectedTaskEquipment: selectedEquipment
     });
+  },
+
+  isOutFlow(record = {}) {
+    const type = String(record.type || "");
+    return type === "出库申请" || type.indexOf("出库") >= 0 || type.indexOf("鍑哄簱") >= 0;
+  },
+
+  isReturnFlow(record = {}) {
+    const type = String(record.type || "");
+    return type === "归还申请" || type.indexOf("归还") >= 0 || type.indexOf("褰掕繕") >= 0;
+  },
+
+  isOutConfirmed(record = {}) {
+    const status = String(record.status || "");
+    return status === "已出库" || status.indexOf("已出库") >= 0 || status.indexOf("宸插嚭搴") >= 0;
+  },
+
+  isReturnConfirmed(record = {}) {
+    const status = String(record.status || "");
+    return status === "已入库" || status.indexOf("已入库") >= 0 || status.indexOf("宸插叆搴") >= 0;
   },
 
   async loadOnsiteProjectConfigs() {
@@ -536,7 +557,7 @@ Page({
   buildSelectedTaskEquipment(task, flow, projectConfigs = this.data.onsiteProjectConfigs) {
     if (!task) return [];
     if (this.data.activeType === "return") {
-      const borrowed = (flow || []).find((record) => record.taskId === task.id && record.type === "出库申请" && record.status === "已出库");
+      const borrowed = (flow || []).find((record) => record.taskId === task.id && this.isOutFlow(record) && this.isOutConfirmed(record));
       if (borrowed && borrowed.equipmentDetails && borrowed.equipmentDetails.length) {
         return borrowed.equipmentDetails.map((item) => this.decorateSelectableEquipment(item));
       }
@@ -593,7 +614,7 @@ Page({
       return;
     }
     if (selected.length >= requiredQuantity) {
-      wx.showToast({ title: "已选够数量", icon: "none" });
+      wx.showToast({ title: "宸查€夊鏁伴噺", icon: "none" });
       return;
     }
     const selectedTaskEquipment = this.data.selectedTaskEquipment.map((item, itemIndex) => (
@@ -668,8 +689,8 @@ Page({
     const decoratedCatalog = this.decorateInstrumentCatalog(this.data.instrumentCatalog, decoratedFlow);
     this.setData({
       instrumentFlow: decoratedFlow,
-      borrowHistory: decoratedFlow.filter((record) => record.type === "出库申请"),
-      pendingReturnRecords: decoratedFlow.filter((record) => record.type === "归还申请" && record.canConfirm),
+      borrowHistory: decoratedFlow.filter((record) => this.isOutFlow(record)),
+      pendingReturnRecords: decoratedFlow.filter((record) => this.isReturnFlow(record) && record.canConfirm),
       instrumentCatalog: decoratedCatalog,
       filteredInstrumentCatalog: this.filterInstrumentCatalog(decoratedCatalog, this.data.instrumentCatalogSearch)
     });
@@ -704,7 +725,7 @@ Page({
 
   buildInstrumentUsageMap(flow) {
     const usageMap = {};
-    (flow || []).filter((record) => record.type === "出库申请" && record.status === "已出库").forEach((record) => {
+    (flow || []).filter((record) => this.isOutFlow(record) && this.isOutConfirmed(record)).forEach((record) => {
       (record.equipmentDetails || []).forEach((equipment) => {
         const keys = [equipment.instrumentId, equipment.code, equipment.name].filter(Boolean);
         keys.forEach((key) => {
@@ -715,7 +736,7 @@ Page({
         });
       });
     });
-    (flow || []).filter((record) => record.type === "归还申请" && record.status === "已入库").forEach((record) => {
+    (flow || []).filter((record) => this.isReturnFlow(record) && this.isReturnConfirmed(record)).forEach((record) => {
       (record.equipmentDetails || []).forEach((equipment) => {
         const keys = [equipment.instrumentId, equipment.code, equipment.name].filter(Boolean);
         keys.forEach((key) => {
@@ -754,15 +775,15 @@ Page({
 
   decorateInstrumentRecord(record, canConfirm) {
     const equipmentText = record.instrumentName || (record.equipmentDetails || [])
-      .map((item) => `${item.name}×${item.quantity || 1}`)
+      .map((item) => `${item.name}脳${item.quantity || 1}`)
       .join("、");
     return {
       ...record,
       equipmentText,
-      taskText: record.taskTitle || record.purpose || "未关联现场工作",
+      taskText: `${record.taskNo ? `${record.taskNo} ` : ""}${record.taskTitle || record.purpose || "未关联现场工作"}`,
       borrowerText: record.borrower || "未记录",
       timeText: record.time || record.createdAt || "未记录",
-      canConfirm: canConfirm && record.status === "待仓库管理员确认"
+      canConfirm: canConfirm && !this.isOutConfirmed(record) && !this.isReturnConfirmed(record)
     };
   },
 
@@ -800,7 +821,7 @@ Page({
       if (record.id !== id && record._id !== id) return record;
       return {
         ...record,
-        status: record.type === "归还申请" ? "已入库" : "已出库",
+        status: this.isReturnFlow(record) ? "已入库" : "已出库",
         confirmedBy: getCurrentUser().name
       };
     });
@@ -811,12 +832,9 @@ Page({
         confirmedBy: getCurrentUser().name
       });
       if (!ok) {
-        wx.showToast({ title: "云端确认失败", icon: "none" });
+        wx.showToast({ title: "浜戠纭澶辫触", icon: "none" });
         return;
       }
-    }
-    if (record && record.type === "归还申请") {
-      await this.closeOnsiteTask(record.taskId);
     }
     if (current && current._id) {
       this.setInstrumentFlowData(nextFlow);
@@ -825,7 +843,7 @@ Page({
     }
     this.loadStartedOnsiteTasks();
     wx.showToast({
-      title: record && record.type === "归还申请" ? "已确认入库" : "已确认出库",
+      title: record && this.isReturnFlow(record) ? "已确认入库" : "已确认出库",
       icon: "success"
     });
   },
@@ -888,7 +906,7 @@ Page({
     this.setData({
       pickerPanelVisible: true,
       pickerPanelType: "date",
-      pickerPanelTitle: "选择会议日期",
+      pickerPanelTitle: "閫夋嫨浼氳鏃ユ湡",
       calendarYear: date.getFullYear(),
       calendarMonth: date.getMonth(),
       pendingMeetingDate: formatDate(date),
@@ -904,7 +922,7 @@ Page({
     this.setData({
       pickerPanelVisible: true,
       pickerPanelType: "time",
-      pickerPanelTitle: "选择会议时间",
+      pickerPanelTitle: "閫夋嫨浼氳鏃堕棿",
       pendingMeetingDate: this.data.form.meetingDate || this.data.todayDate,
       pendingMeetingDateText: this.formatDateText(this.data.form.meetingDate || this.data.todayDate),
       pendingStartHour: startHour,
@@ -1063,7 +1081,7 @@ Page({
       };
       if (this.data.activeType === "room") {
         nextData["form.time"] = `${this.data.form.meetingDate || this.data.pendingMeetingDate} ${startTime}-${endTime}`;
-        nextData["form.title"] = this.data.form.title || `${this.data.roomSelectedName}预约`;
+        nextData["form.title"] = this.data.form.title || `${this.data.roomSelectedName}棰勭害`;
         const reserved = await this.reserveSelectedRoom(this.data.pendingStartHour, this.data.pendingEndHour);
         if (!reserved) return;
       }
@@ -1187,7 +1205,7 @@ Page({
           endHour: end,
           startTime: formatHour(start),
           endTime: formatHour(end),
-          title: this.data.form.title || `${room.name}预约`,
+          title: this.data.form.title || `${room.name}棰勭害`,
           applicant: user.name,
           applicantId: user.id,
           applicantOpenid: user.openid
@@ -1205,7 +1223,7 @@ Page({
       }
 
       wx.showToast({
-        title: "会议室已占用",
+        title: "浼氳瀹ゅ凡鍗犵敤",
         icon: "success"
       });
       this.setData({
@@ -1217,7 +1235,7 @@ Page({
     } catch (error) {
       this.setData({ submitting: false });
       wx.showToast({
-        title: error.errMsg || "占用失败",
+        title: error.errMsg || "鍗犵敤澶辫触",
         icon: "none"
       });
       return false;
@@ -1225,7 +1243,7 @@ Page({
   },
 
   updateRoomDateText(value) {
-    const text = value === this.data.todayDate ? "今天" : this.formatDateText(value);
+    const text = value === this.data.todayDate ? "浠婂ぉ" : this.formatDateText(value);
     this.setData({
       roomSelectedDateText: text
     });
@@ -1251,7 +1269,7 @@ Page({
 
   formatDateText(value) {
     const date = this.parseDate(value);
-    return `${date.getMonth() + 1}月${date.getDate()}日 ${weekNames[date.getDay()]}`;
+    return `${date.getMonth() + 1}鏈?{date.getDate()}鏃?${weekNames[date.getDay()]}`;
   },
 
   formatDateTimeText(date) {
@@ -1264,7 +1282,7 @@ Page({
       (item.selectedInstruments || []).length < (item.requiredQuantity || item.quantity || 1)
     ));
     if (incomplete) {
-      wx.showToast({ title: "请按数量选够仪器", icon: "none" });
+      wx.showToast({ title: "璇锋寜鏁伴噺閫夊浠櫒", icon: "none" });
       return [];
     }
     (this.data.selectedTaskEquipment || []).forEach((item) => {
@@ -1288,6 +1306,7 @@ Page({
 
   async submitApply() {
     if (this.data.activeType === "instrument" || this.data.activeType === "return") {
+      if (this.data.submitting) return;
       const task = this.data.startedOnsiteTasks[this.data.startedTaskIndex];
       const checkedEquipment = this.data.activeType === "instrument"
         ? this.buildBorrowEquipmentDetails()
@@ -1300,10 +1319,13 @@ Page({
         wx.showToast({ title: "请确认设备明细", icon: "none" });
         return;
       }
-      const record = {
+      this.setData({ submitting: true });
+      try {
+        const record = {
         id: `${this.data.activeType === "instrument" ? "OUT" : "IN"}-${Date.now()}`,
-        type: this.data.activeType === "instrument" ? "出库申请" : "归还申请",
+        type: this.data.activeType === "instrument" ? "出库申请" : "仪器归还申请",
         taskId: task.id,
+        taskNo: task.taskNo || "",
         taskTitle: task.title,
         instrumentName: checkedEquipment.map((item) => `${this.formatEquipmentDisplay(item)}×${item.quantity}`).join("、"),
         equipmentDetails: checkedEquipment,
@@ -1311,30 +1333,40 @@ Page({
         purpose: task.title,
         borrower: getCurrentUser().name,
         time: this.formatDateTimeText(new Date()),
-        status: "待审批",
+        status: "待仓库管理员确认",
         approvalRequired: true,
         approvalStatus: "pending",
         approvalFlow: [
-          { key: "instrument_admin", name: "仪器管理员审批", role: "仪器管理员" }
+          { key: "instrument_admin", name: "仪器管理员审核", role: "仪器管理员" }
         ],
         currentStepIndex: 0
       };
-      const cloudId = await this.createCloudInstrumentFlow(record);
-      const savedRecord = cloudId ? { ...record, _id: cloudId } : record;
-      const nextFlow = [savedRecord, ...(this.data.instrumentFlow || [])];
-      if (cloudId) {
-        this.setInstrumentFlowData(nextFlow);
-      } else {
-        this.saveInstrumentFlow(nextFlow);
+        const cloudResult = await this.createCloudInstrumentFlow(record);
+        const cloudId = cloudResult.recordId || "";
+        if (!cloudId && wx.cloud) {
+          wx.showToast({ title: cloudResult.message || "申请提交失败，请稍后重试", icon: "none" });
+          return;
+        }
+        const savedRecord = cloudId ? { ...record, _id: cloudId } : record;
+        const nextFlow = [savedRecord, ...(this.data.instrumentFlow || [])];
+        if (cloudId) {
+          this.setInstrumentFlowData(nextFlow);
+        } else {
+          this.saveInstrumentFlow(nextFlow);
+        }
+        const updatedCatalog = this.decorateInstrumentCatalog(this.data.instrumentCatalog, nextFlow.map((record) => this.decorateInstrumentRecord(record, this.canConfirmInventory())));
+        this.setData({
+          instrumentCatalog: updatedCatalog,
+          filteredInstrumentCatalog: this.filterInstrumentCatalog(updatedCatalog, this.data.instrumentCatalogSearch),
+          selectedTaskEquipment: this.data.selectedTaskEquipment.map((item) => ({ ...item, checked: false })),
+          form: { ...defaultForm }
+        });
+        await this.loadInstrumentFlow();
+        await this.loadStartedOnsiteTasks();
+        wx.showToast({ title: this.data.activeType === "instrument" ? "已提交出库申请" : "已提交仪器归还申请", icon: "success" });
+      } finally {
+        this.setData({ submitting: false });
       }
-      const updatedCatalog = this.decorateInstrumentCatalog(this.data.instrumentCatalog, nextFlow.map((record) => this.decorateInstrumentRecord(record, this.canConfirmInventory())));
-      this.setData({
-        instrumentCatalog: updatedCatalog,
-        filteredInstrumentCatalog: this.filterInstrumentCatalog(updatedCatalog, this.data.instrumentCatalogSearch),
-        selectedTaskEquipment: this.data.selectedTaskEquipment.map((item) => ({ ...item, checked: false })),
-        form: { ...defaultForm }
-      });
-      wx.showToast({ title: this.data.activeType === "instrument" ? "已提交出库申请" : "已提交归还申请", icon: "success" });
       return;
     }
 
@@ -1457,7 +1489,7 @@ Page({
   },
 
   async createCloudInstrumentFlow(record) {
-    if (!wx.cloud) return "";
+    if (!wx.cloud) return { ok: true, recordId: "" };
     try {
       const res = await wx.cloud.callFunction({
         name: "createInstrumentFlow",
@@ -1467,9 +1499,9 @@ Page({
         }
       });
       const result = res.result || {};
-      return result.ok ? result.recordId : "";
+      return result.ok ? { ok: true, recordId: result.recordId } : { ok: false, recordId: "", message: result.message };
     } catch (error) {
-      return "";
+      return { ok: false, recordId: "", message: error.errMsg || error.message };
     }
   },
 
@@ -1759,11 +1791,11 @@ Page({
 
   buildMeetingInfoText({ title, applicant, dateText, timeText, account, meeting }) {
     return [
-      `主题：${title || ""}`,
-      `申请人：${applicant || ""}`,
-      `会议时间：${dateText || ""} ${timeText || ""}`,
-      `会议号：${meeting && meeting.meetingCode ? meeting.meetingCode : ""}`,
-      `会议链接：${meeting && meeting.joinUrl ? meeting.joinUrl : ""}`
+      `涓婚锛?{title || ""}`,
+      `鐢宠浜猴細${applicant || ""}`,
+      `浼氳鏃堕棿锛?{dateText || ""} ${timeText || ""}`,
+      `浼氳鍙凤細${meeting && meeting.meetingCode ? meeting.meetingCode : ""}`,
+      `浼氳閾炬帴锛?{meeting && meeting.joinUrl ? meeting.joinUrl : ""}`
     ].join("\n");
   }
 });

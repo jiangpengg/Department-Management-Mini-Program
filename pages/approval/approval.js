@@ -85,7 +85,81 @@ function buildOnsiteConfigChangeLines(record = {}) {
 
 function formatEquipmentLine(equipment = {}) {
   const meta = [equipment.model, equipment.code || equipment.instrumentId].filter(Boolean).join(" / ");
-  return `${equipment.name || TEXT.instrumentDetail}${meta ? ` (${meta})` : ""} \u00d7 ${Number(equipment.quantity) || 1}`;
+  return `${cleanInstrumentDisplayText(equipment.name, TEXT.instrumentDetail)}${meta ? ` (${meta})` : ""} \u00d7 ${Number(equipment.quantity) || 1}`;
+}
+
+function normalizeInstrumentText(value) {
+  return String(value || "")
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(parseInt(code, 10)))
+    .replace(/脳/g, "\u00d7")
+    .replace(/銆?/g, "\u3001")
+    .replace(/锛?/g, "\uff08")
+    .replace(/锛塦/g, "\uff09")
+    .replace(/鍑哄簱鐢宠/g, STATUS.out)
+    .replace(/褰掕繕鐢宠/g, STATUS.back)
+    .replace(/宸插嚭搴?/g, STATUS.outDone)
+    .replace(/宸插叆搴?/g, STATUS.inDone)
+    .replace(/寰呬粨搴撶鐞嗗憳纭/g, STATUS.waitConfirm)
+    .replace(/寰呭鎵?/g, STATUS.waitConfirm);
+}
+
+function looksCorruptInstrumentText(value) {
+  const text = String(value || "");
+  const bracketCount = (text.match(/[（(]/g) || []).length;
+  return /[鍑褰宸寰锛銆脳]|&#x|&#\d|[（(]\s*、|、\s*[（(]/.test(text) || bracketCount >= 4;
+}
+
+function recoverCorruptTaskTitle(value) {
+  const text = normalizeInstrumentText(value);
+  const chars = [];
+  const pattern = /[（(]\s*、\s*[（(]?\s*([\u4e00-\u9fa5A-Za-z0-9])/g;
+  let match = pattern.exec(text);
+  while (match) {
+    chars.push(match[1]);
+    match = pattern.exec(text);
+  }
+  const recovered = chars.join("");
+  if (recovered.length >= 2) return recovered;
+  const stripped = text
+    .replace(/[（(）、,\s]/g, "")
+    .replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, "");
+  return stripped.length >= 2 && stripped.length <= 30 ? stripped : "";
+}
+
+function pickTaskTitle(candidates, fallback) {
+  for (let i = 0; i < candidates.length; i += 1) {
+    const raw = candidates[i];
+    if (!raw) continue;
+    const recovered = recoverCorruptTaskTitle(raw);
+    if (recovered) return recovered;
+    if (!looksCorruptInstrumentText(raw)) return normalizeInstrumentText(raw);
+  }
+  return fallback;
+}
+
+function cleanInstrumentDisplayText(value, fallback = TEXT.instrumentDetail) {
+  const recovered = recoverCorruptTaskTitle(value);
+  if (recovered) return recovered;
+  return looksCorruptInstrumentText(value) ? fallback : normalizeInstrumentText(value || fallback);
+}
+
+function isOutFlow(record = {}) {
+  const type = normalizeInstrumentText(record.type);
+  return type === STATUS.out || type.indexOf("\u51fa\u5e93") >= 0;
+}
+
+function isReturnFlow(record = {}) {
+  const type = normalizeInstrumentText(record.type);
+  return type === STATUS.back || type.indexOf("\u5f52\u8fd8") >= 0;
+}
+
+function isOutDone(record = {}) {
+  return normalizeInstrumentText(record.status) === STATUS.outDone;
+}
+
+function isInDone(record = {}) {
+  return normalizeInstrumentText(record.status) === STATUS.inDone;
 }
 
 Page({
@@ -128,9 +202,15 @@ Page({
   },
 
   async loadApplications() {
+    const loadId = (this._approvalLoadId || 0) + 1;
+    this._approvalLoadId = loadId;
+    if ((this.data.visibleApplications || []).some((item) => item.source === "instrument" && looksCorruptInstrumentText(item.displayTitle || item.title || item.displayDetail || item.detail))) {
+      this.setData({ visibleApplications: [] });
+    }
     await this.loadApprovalRoleMembers();
     const cloudSealApplications = await this.loadCloudSealApplications();
-    const cloudInstrumentApplications = await this.loadCloudInstrumentApplications();
+    const onsiteTaskMap = await this.loadCloudOnsiteTaskMap();
+    const cloudInstrumentApplications = await this.loadCloudInstrumentApplications(onsiteTaskMap);
     const onsiteConfigApplications = await this.loadOnsiteConfigApplications();
     const localSealApplications = wx.getStorageSync("sealApplications") || [];
     const cloudIds = cloudSealApplications.map((item) => item.id || item._id);
@@ -151,6 +231,7 @@ Page({
         const meta = statusMeta(item.status);
         return this.decorateApplication({ ...item, statusText: meta.text, statusTone: meta.tone });
       });
+    if (loadId !== this._approvalLoadId) return;
     this.setData({ applications: list }, this.applyFilter);
   },
 
@@ -182,15 +263,33 @@ Page({
     }
   },
 
-  async loadCloudInstrumentApplications() {
+  async loadCloudOnsiteTaskMap() {
+    if (!wx.cloud) return {};
+    try {
+      const res = await wx.cloud.callFunction({ name: "listOnsiteWorks" });
+      const result = res.result || {};
+      if (!result.ok) return {};
+      return (result.records || []).reduce((map, item) => {
+        if (item.id) map[item.id] = item;
+        if (item._id) map[item._id] = item;
+        if (item.taskNo) map[item.taskNo] = item;
+        if (item.no) map[item.no] = item;
+        return map;
+      }, {});
+    } catch (error) {
+      return {};
+    }
+  },
+
+  async loadCloudInstrumentApplications(onsiteTaskMap = {}) {
     if (!wx.cloud) return [];
     try {
       const res = await wx.cloud.callFunction({ name: "listInstrumentFlows" });
       const result = res.result || {};
       if (!result.ok) return [];
       return (result.records || [])
-        .filter((item) => item.approvalRequired || item.approvalStatus || item.status === STATUS.waitApproval || item.status === STATUS.waitConfirm)
-        .map((item) => this.convertInstrumentFlowToApplication(item));
+        .filter((item) => isOutFlow(item) || isReturnFlow(item) || item.approvalRequired || item.approvalStatus || item.status === STATUS.waitApproval || item.status === STATUS.waitConfirm)
+        .map((item) => this.convertInstrumentFlowToApplication(item, onsiteTaskMap));
     } catch (error) {
       return [];
     }
@@ -215,30 +314,42 @@ Page({
     }
   },
 
-  convertInstrumentFlowToApplication(record) {
-    const isReturn = record.type === STATUS.back;
+  convertInstrumentFlowToApplication(record, onsiteTaskMap = {}) {
+    const normalizedStatus = normalizeInstrumentText(record.status);
+    const isReturn = isReturnFlow(record);
+    const linkedTask = onsiteTaskMap[record.taskId] || onsiteTaskMap[record.taskNo] || {};
+    const taskNo = record.taskNo || linkedTask.taskNo || "";
+    const taskTitle = pickTaskTitle(
+      [linkedTask.title, record.taskTitle, record.purpose],
+      taskNo ? "\u73b0\u573a\u5de5\u4f5c" : (isReturn ? TEXT.returnTitle : TEXT.borrowTitle)
+    );
     const isPendingApproval = record.approvalStatus === "pending" || record.status === STATUS.waitApproval;
-    const needsInventoryConfirm = record.status === STATUS.waitConfirm || record.approvalStatus === "approved";
-    const isClosed = record.status === STATUS.outDone || record.status === STATUS.inDone || record.approvalStatus === "completed";
+    const needsInventoryConfirm = normalizedStatus === STATUS.waitConfirm || record.approvalStatus === "approved";
+    const isClosed = isOutDone(record) || isInDone(record) || record.approvalStatus === "completed";
     const status = record.approvalStatus === "rejected" ? "rejected" : (isClosed ? "approved" : "pending");
     const equipmentLines = (record.equipmentDetails || []).map(formatEquipmentLine);
-    const equipmentText = record.instrumentName || equipmentLines.join("\u3001");
-    const approvalFlow = needsInventoryConfirm
-      ? [{ key: "instrument_confirm", name: isReturn ? "\u4ed3\u5e93\u7ba1\u7406\u5458\u786e\u8ba4\u5165\u5e93" : "\u4ed3\u5e93\u7ba1\u7406\u5458\u786e\u8ba4\u51fa\u5e93", role: TEXT.warehouse }]
-      : [{ key: "instrument_admin", name: `${TEXT.instrumentAdmin}\u5ba1\u6279`, role: TEXT.instrumentAdmin }];
+    const equipmentText = cleanInstrumentDisplayText(record.instrumentName, equipmentLines.join("\u3001") || TEXT.instrumentDetail);
+    const approvalFlow = [{ key: "instrument_admin", name: isReturn ? TEXT.confirmIn : TEXT.confirmOut, role: TEXT.warehouse }];
+    const fallbackTitle = `${taskNo ? "\u73b0\u573a\u5de5\u4f5c" : (isReturn ? TEXT.returnTitle : TEXT.borrowTitle)}${taskNo ? ` ${taskNo}` : ""}`;
+    const rawDisplayTitle = `${taskTitle}${taskNo ? ` ${taskNo}` : ""}`;
+    const displayTitle = looksCorruptInstrumentText(rawDisplayTitle) ? fallbackTitle : rawDisplayTitle;
+    const displayDetail = `\u5173\u8054\u73b0\u573a\u5de5\u4f5c\uff1a${displayTitle || TEXT.unlinked}`;
     return {
       ...record,
       source: "instrument",
       type: isReturn ? TEXT.instrumentReturn : TEXT.instrumentBorrow,
-      title: record.taskTitle || record.purpose || (isReturn ? TEXT.returnTitle : TEXT.borrowTitle),
+      taskNo,
+      title: displayTitle,
+      displayTitle,
       applicant: record.applicant || record.borrower || "",
       department: record.department || "",
       time: record.time || "",
       status,
       approvalRequired: true,
-      needsInventoryConfirm: needsInventoryConfirm && !isClosed,
-      approveText: needsInventoryConfirm ? (isReturn ? TEXT.confirmIn : TEXT.confirmOut) : TEXT.pass,
-      detail: `\u5173\u8054\u73b0\u573a\u5de5\u4f5c\uff1a${record.taskTitle || record.purpose || TEXT.unlinked}`,
+      needsInventoryConfirm: true,
+      approveText: isReturn ? TEXT.confirmIn : TEXT.confirmOut,
+      detail: displayDetail,
+      displayDetail,
       equipmentLines: equipmentLines.length ? equipmentLines : [equipmentText || TEXT.instrumentDetail],
       approvalFlow: isPendingApproval || needsInventoryConfirm ? approvalFlow : [],
       currentStepIndex: 0
@@ -261,10 +372,37 @@ Page({
   decorateApplication(item) {
     const flow = item.approvalFlow || [];
     const currentStep = flow[item.currentStepIndex || 0];
+    const displayItem = this.ensureCleanApplicationDisplay(item);
+    return {
+      ...displayItem,
+      currentStepText: displayItem.status === "pending" && currentStep ? currentStep.name : "",
+      canReview: this.canReviewStep(displayItem, currentStep)
+    };
+  },
+
+  ensureCleanApplicationDisplay(item) {
+    if (item.source !== "instrument") {
+      return {
+        ...item,
+        displayTitle: item.displayTitle || item.title || "",
+        displayDetail: item.displayDetail || item.detail || ""
+      };
+    }
+    const taskNo = item.taskNo || "";
+    const fallbackTitle = `${taskNo ? "\u73b0\u573a\u5de5\u4f5c" : TEXT.instrumentBorrow}${taskNo ? ` ${taskNo}` : ""}`;
+    const titleCandidate = item.displayTitle || item.title || item.taskTitle || item.purpose || "";
+    const cleanTitle = looksCorruptInstrumentText(titleCandidate)
+      ? (recoverCorruptTaskTitle(titleCandidate) || fallbackTitle)
+      : normalizeInstrumentText(titleCandidate || fallbackTitle);
+    const displayTitle = looksCorruptInstrumentText(cleanTitle) ? fallbackTitle : cleanTitle;
+    const displayDetail = `\u5173\u8054\u73b0\u573a\u5de5\u4f5c\uff1a${displayTitle}`;
     return {
       ...item,
-      currentStepText: item.status === "pending" && currentStep ? currentStep.name : "",
-      canReview: this.canReviewStep(item, currentStep)
+      title: displayTitle,
+      detail: displayDetail,
+      displayTitle,
+      displayDetail,
+      equipmentLines: (item.equipmentLines || []).map((line) => cleanInstrumentDisplayText(line, TEXT.instrumentDetail))
     };
   },
 
@@ -273,7 +411,7 @@ Page({
     const user = getCurrentUser();
     if (currentStep.key === "section") return user.roleKey === "section_manager" && user.department === item.department;
     if (currentStep.key === "institute") return canManageSystem();
-    if (currentStep.key === "instrument_admin" || currentStep.key === "instrument_confirm") {
+    if (item.source === "instrument" || currentStep.key === "instrument_admin" || currentStep.key === "instrument_confirm") {
       return canManageSystem() || hasCapability("system_config") || this.data.warehouseMembers.indexOf(user.name) >= 0;
     }
     return canManageSystem();
@@ -330,19 +468,23 @@ Page({
   async updateCloudInstrumentApplication(item, action) {
     try {
       const approved = action === "approve";
-      const isReturn = item.type === TEXT.instrumentReturn;
-      const data = item.needsInventoryConfirm
+      const isReturn = item.type === TEXT.instrumentReturn || isReturnFlow(item);
+      const data = approved
         ? {
           approvalStatus: "completed",
           status: isReturn ? STATUS.inDone : STATUS.outDone,
-          confirmedBy: getCurrentUser().name
+          currentStepIndex: 0,
+          approvedBy: getCurrentUser().name,
+          confirmedBy: getCurrentUser().name,
+          rejectedBy: ""
         }
         : {
-          approvalStatus: approved ? "approved" : "rejected",
-          status: approved ? STATUS.waitConfirm : STATUS.rejected,
+          approvalStatus: "rejected",
+          status: STATUS.rejected,
           currentStepIndex: 0,
-          approvedBy: approved ? getCurrentUser().name : "",
-          rejectedBy: approved ? "" : getCurrentUser().name
+          approvedBy: "",
+          confirmedBy: "",
+          rejectedBy: getCurrentUser().name
         };
       const res = await wx.cloud.callFunction({
         name: "updateInstrumentFlow",
